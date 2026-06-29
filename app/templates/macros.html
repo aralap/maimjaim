@@ -1,0 +1,35 @@
+{% macro format_cents(cents) -%}
+${{ "%.2f"|format(cents / 100) }}
+{%- endmacro %}
+
+{% macro payment_badge(status) -%}
+{% set colors = {
+    'unpaid': 'bg-red-100 text-red-800',
+    'partial': 'bg-yellow-100 text-yellow-800',
+    'paid': 'bg-green-100 text-green-800',
+    'refunded': 'bg-gray-100 text-gray-800'
+} %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ colors.get(status, 'bg-gray-100 text-gray-800') }}">
+    {{ labels.PAYMENT_STATUS.get(status, status) }}
+</span>
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+{% set colors = {
+    'draft': 'bg-gray-100 text-gray-800',
+    'confirmed': 'bg-blue-100 text-blue-800',
+    'fulfilled': 'bg-green-100 text-green-800',
+    'cancelled': 'bg-red-100 text-red-800'
+} %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ colors.get(status, 'bg-gray-100 text-gray-800') }}">
+    {{ labels.ORDER_STATUS.get(status, status) }}
+</span>
+{%- endmacro %}
+
+{% macro movement_reason(reason) -%}
+{{ labels.MOVEMENT_REASONS.get(reason, reason) }}
+{%- endmacro %}
+
+{% macro payment_method_label(method) -%}
+{{ labels.PAYMENT_METHODS.get(method, method or '—') }}
+{%- endmacro %}

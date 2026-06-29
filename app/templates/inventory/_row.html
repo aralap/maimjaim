@@ -1,0 +1,20 @@
+<tr id="inventory-row-{{ item.variant_id }}">
+    <td class="px-6 py-4 font-medium">{{ item.variant.sku }}</td>
+    <td class="px-6 py-4">{{ item.variant.product.name }}</td>
+    <td class="px-6 py-4">{{ item.quantity_on_hand }}</td>
+    <td class="px-6 py-4">{{ item.quantity_reserved }}</td>
+    <td class="px-6 py-4 font-medium {% if item.is_low_stock %}text-red-600{% endif %}">{{ item.quantity_available }}</td>
+    <td class="px-6 py-4">{{ item.reorder_point }}</td>
+    <td class="px-6 py-4">
+        {% if current_user.is_admin() %}
+        <form hx-post="{{ url_for('web_inventory.adjust', variant_id=item.variant_id) }}"
+              hx-target="#inventory-row-{{ item.variant_id }}"
+              hx-swap="outerHTML"
+              class="flex items-center space-x-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="number" name="quantity" placeholder="+/-" class="w-20 border rounded px-2 py-1 text-sm">
+            <button type="submit" class="text-sm text-indigo-600">Ajustar</button>
+        </form>
+        {% endif %}
+    </td>
+</tr>

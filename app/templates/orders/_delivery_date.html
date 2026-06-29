@@ -1,0 +1,8 @@
+{% from "macros.html" import status_badge, payment_badge %}
+<span id="delivery-date-display" class="text-sm text-gray-600">
+    {% if order.delivery_date %}
+    Entrega: <strong>{{ order.delivery_date.strftime('%d/%m/%Y') }}</strong>
+    {% else %}
+    <span class="text-amber-600">Sin fecha de entrega</span>
+    {% endif %}
+</span>

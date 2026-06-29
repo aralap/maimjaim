@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "macros.html" import format_cents %}
+{% block title %}Productos - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Productos</h1>
+    {% if current_user.is_admin() %}
+    <a href="{{ url_for('web_products.new_product') }}"
+       class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+        Nuevo producto
+    </a>
+    {% endif %}
+</div>
+
+<div class="mb-4 flex flex-wrap gap-2 items-center">
+    <a href="{{ url_for('web_products.list_products', show_inactive=1 if show_inactive else None) }}"
+       class="px-3 py-1 rounded-full text-sm {% if not current_category_id %}bg-indigo-100 text-indigo-800{% else %}bg-gray-100 text-gray-600{% endif %}">Todas</a>
+    {% for cat in categories %}
+    <a href="{{ url_for('web_products.list_products', category_id=cat.id, show_inactive=1 if show_inactive else None) }}"
+       class="px-3 py-1 rounded-full text-sm {% if current_category_id == cat.id %}bg-indigo-100 text-indigo-800{% else %}bg-gray-100 text-gray-600{% endif %}">{{ cat.name }}</a>
+    {% endfor %}
+    <a href="{{ url_for('web_products.list_products', category_id=current_category_id, show_inactive=1) }}"
+       class="ml-auto px-3 py-1 rounded-full text-sm {% if show_inactive %}bg-amber-100 text-amber-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+        {% if show_inactive %}Ocultar inactivos{% else %}Ver inactivos{% endif %}
+    </a>
+</div>
+
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidad</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proveedor</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock mín.</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for product in products %}
+            {% set variant = product.variants[0] if product.variants else none %}
+            <tr class="{% if not product.is_active %}bg-gray-50 opacity-75{% endif %}">
+                <td class="px-6 py-4 font-medium">{{ variant.sku if variant else '—' }}</td>
+                <td class="px-6 py-4 font-medium text-gray-900">{{ product.name }}</td>
+                <td class="px-6 py-4 text-gray-500">{{ product.category.name if product.category else '—' }}</td>
+                <td class="px-6 py-4 text-gray-500">{{ product.unit or '—' }}</td>
+                <td class="px-6 py-4 text-gray-500">{{ product.supplier or '—' }}</td>
+                <td class="px-6 py-4 text-gray-500">{{ variant.inventory_item.reorder_point if variant and variant.inventory_item else '—' }}</td>
+                <td class="px-6 py-4">
+                    {% if product.is_active %}
+                    <span class="text-green-600">Activo</span>
+                    {% else %}
+                    <span class="text-gray-400">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4">
+                    <a href="{{ url_for('web_products.detail', product_id=product.id) }}" class="text-indigo-600 hover:text-indigo-900">Ver</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="px-6 py-8 text-center text-gray-500">No hay productos todavía.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

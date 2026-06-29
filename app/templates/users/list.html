@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Usuarios - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-8">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Usuarios</h1>
+        {% if pending_count %}
+        <p class="text-amber-600 mt-1">{{ pending_count }} pendiente(s) de aprobación</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registro</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for user in users %}
+            <tr class="{% if not user.is_active %}bg-amber-50{% endif %}">
+                <td class="px-6 py-4 font-medium">{{ user.name }}</td>
+                <td class="px-6 py-4 text-gray-500">{{ user.email }}</td>
+                <td class="px-6 py-4">
+                    {% if user.id == current_user.id %}
+                    {{ labels.USER_ROLES.get(user.role, user.role) }}
+                    {% else %}
+                    <form method="post" action="{{ url_for('web_users.set_role', user_id=user.id) }}" class="inline-flex items-center gap-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <select name="role" class="border rounded px-2 py-1 text-sm" onchange="this.form.submit()">
+                            {% for value, label in labels.USER_ROLES.items() %}
+                            <option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4">
+                    {% if user.is_active %}
+                    <span class="text-green-600">Habilitado</span>
+                    {% else %}
+                    <span class="text-amber-700 font-medium">Pendiente</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-gray-500">
+                    {{ user.created_at.strftime('%d/%m/%Y %H:%M') if user.created_at else '—' }}
+                </td>
+                <td class="px-6 py-4">
+                    {% if user.id != current_user.id %}
+                    {% if user.is_active %}
+                    <form method="post" action="{{ url_for('web_users.revoke', user_id=user.id) }}" class="inline"
+                          onsubmit="return confirm('¿Deshabilitar a {{ user.name }}?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="text-red-600 hover:text-red-800">Deshabilitar</button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="{{ url_for('web_users.approve', user_id=user.id) }}" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="text-green-600 hover:text-green-800 font-medium">Habilitar</button>
+                    </form>
+                    {% endif %}
+                    {% else %}
+                    <span class="text-gray-400">Vos</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No hay usuarios.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

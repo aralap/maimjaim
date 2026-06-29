@@ -1,0 +1,58 @@
+{% from "macros.html" import format_cents, payment_badge, payment_method_label %}
+<div id="payment-section">
+    <h2 class="text-lg font-medium mb-4">Pago</h2>
+    <dl class="space-y-2 text-sm mb-4">
+        <div class="flex justify-between">
+            <dt class="text-gray-500">Estado</dt>
+            <dd>{{ payment_badge(order.payment_status) }}</dd>
+        </div>
+        <div class="flex justify-between">
+            <dt class="text-gray-500">Método</dt>
+            <dd>{{ payment_method_label(order.payment_method) }}</dd>
+        </div>
+        <div class="flex justify-between">
+            <dt class="text-gray-500">Pagado</dt>
+            <dd>{{ format_cents(order.amount_paid) }}</dd>
+        </div>
+        <div class="flex justify-between font-medium">
+            <dt class="text-gray-500">Saldo pendiente</dt>
+            <dd>{{ format_cents(order.balance_due_cents) }}</dd>
+        </div>
+        {% if order.payment_reference %}
+        <div><dt class="text-gray-500">Referencia</dt><dd>{{ order.payment_reference }}</dd></div>
+        {% endif %}
+        {% if order.payment_notes %}
+        <div><dt class="text-gray-500">Notas de pago</dt><dd>{{ order.payment_notes }}</dd></div>
+        {% endif %}
+    </dl>
+
+    {% if order.status != 'cancelled' %}
+    <form method="post" action="{{ url_for('web_orders.update_payment', order_id=order.id) }}"
+          class="space-y-3 border-t pt-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div>
+            <label class="block text-xs font-medium text-gray-500">Método</label>
+            <select name="payment_method" class="mt-1 block w-full border rounded-md px-2 py-1 text-sm">
+                <option value="">—</option>
+                {% for value, label in payment_methods %}
+                <option value="{{ value }}" {% if order.payment_method == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500">Monto pagado ($)</label>
+            <input type="number" name="amount_paid" step="0.01" min="0"
+                   value="{{ '%.2f'|format(order.amount_paid / 100) }}"
+                   class="mt-1 block w-full border rounded-md px-2 py-1 text-sm">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500">Referencia</label>
+            <input type="text" name="payment_reference" value="{{ order.payment_reference or '' }}"
+                   class="mt-1 block w-full border rounded-md px-2 py-1 text-sm">
+        </div>
+        <button type="submit" class="w-full px-3 py-2 bg-gray-800 text-white text-sm rounded-md hover:bg-gray-900">
+            Actualizar pago
+        </button>
+    </form>
+    {% endif %}
+</div>

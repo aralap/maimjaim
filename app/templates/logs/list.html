@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Registro de actividad - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Registro de actividad</h1>
+    <p class="text-gray-600 mt-1">Historial de acciones con usuario, fecha y detalle completo.</p>
+</div>
+
+<div class="mb-4 flex flex-wrap gap-2">
+    <a href="{{ url_for('web_logs.list_logs') }}"
+       class="px-3 py-1 rounded-full text-sm {% if not current_entity_type %}bg-indigo-100 text-indigo-800{% else %}bg-gray-100 text-gray-600{% endif %}">Todos</a>
+    {% for key, label in labels.ENTITY_TYPES.items() %}
+    <a href="{{ url_for('web_logs.list_logs', entity_type=key) }}"
+       class="px-3 py-1 rounded-full text-sm {% if current_entity_type == key %}bg-indigo-100 text-indigo-800{% else %}bg-gray-100 text-gray-600{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resumen</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detalle</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for log in logs %}
+            <tr class="align-top">
+                <td class="px-4 py-3 whitespace-nowrap text-gray-500">
+                    {{ log.created_at.strftime('%d/%m/%Y %H:%M') if log.created_at else '—' }}
+                </td>
+                <td class="px-4 py-3">
+                    {% if log.user %}
+                    <div class="font-medium">{{ log.user.name }}</div>
+                    <div class="text-gray-500 text-xs">{{ log.user.email }}</div>
+                    {% else %}
+                    <span class="text-gray-400">Sistema</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="inline-flex px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-800">
+                        {{ labels.AUDIT_ACTIONS.get(log.action, log.action) }}
+                    </span>
+                    <div class="text-xs text-gray-500 mt-1">
+                        {{ labels.ENTITY_TYPES.get(log.entity_type, log.entity_type) }}
+                        {% if log.entity_id %}#{{ log.entity_id }}{% endif %}
+                    </div>
+                </td>
+                <td class="px-4 py-3">{{ log.summary }}</td>
+                <td class="px-4 py-3">
+                    <details>
+                        <summary class="cursor-pointer text-indigo-600 text-xs">Ver JSON</summary>
+                        <pre class="mt-2 text-xs bg-gray-50 p-2 rounded overflow-x-auto max-w-md">{{ log.details | tojson(indent=2) }}</pre>
+                    </details>
+                    {% if log.ip_address %}
+                    <div class="text-xs text-gray-400 mt-1">IP: {{ log.ip_address }}</div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No hay registros todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

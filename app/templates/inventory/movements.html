@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "macros.html" import movement_reason %}
+{% block title %}Movimientos de inventario - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="mb-8">
+    <a href="{{ url_for('web_inventory.list_inventory') }}" class="text-indigo-600 hover:text-indigo-800 text-sm">&larr; Volver a inventario</a>
+    <h1 class="text-2xl font-bold text-gray-900 mt-2">Movimientos de inventario</h1>
+</div>
+
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cambio</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nota</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 text-sm">
+            {% for m in movements %}
+            <tr>
+                <td class="px-6 py-4">{{ m.created_at.strftime('%d/%m/%Y %H:%M') if m.created_at else '—' }}</td>
+                <td class="px-6 py-4">{{ m.variant.sku }}</td>
+                <td class="px-6 py-4">{{ movement_reason(m.reason) }}</td>
+                <td class="px-6 py-4 {% if m.delta > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    {% if m.delta > 0 %}+{% endif %}{{ m.delta }}
+                </td>
+                <td class="px-6 py-4 text-gray-500">{{ m.note or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No hay movimientos registrados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

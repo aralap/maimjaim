@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "macros.html" import format_cents, status_badge, payment_badge %}
+{% block title %}Pedidos - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Pedidos</h1>
+    <div class="flex space-x-3">
+        <a href="{{ url_for('web_orders.procurement_plan') }}"
+           class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50">
+            A comprar (7 días)
+        </a>
+        <a href="{{ url_for('web_orders.new_order') }}"
+           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+            Nuevo pedido
+        </a>
+    </div>
+</div>
+
+<div class="mb-4 flex flex-wrap gap-2">
+    <a href="{{ url_for('web_orders.list_orders') }}"
+       class="px-3 py-1 rounded-full text-sm {% if not current_status %}bg-indigo-100 text-indigo-800{% else %}bg-gray-100 text-gray-600{% endif %}">Todos</a>
+    {% for s, label in labels.ORDER_STATUS.items() %}
+    <a href="{{ url_for('web_orders.list_orders', status=s) }}"
+       class="px-3 py-1 rounded-full text-sm {% if current_status == s %}bg-indigo-100 text-indigo-800{% else %}bg-gray-100 text-gray-600{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pedido</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entrega</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pago</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for order in orders %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4">
+                    <a href="{{ url_for('web_orders.detail', order_id=order.id) }}" class="text-indigo-600 font-medium">{{ order.order_number }}</a>
+                </td>
+                <td class="px-6 py-4 text-gray-500">{{ order.customer_name or '—' }}</td>
+                <td class="px-6 py-4 text-gray-500 text-sm">
+                    {% if order.delivery_date %}{{ order.delivery_date.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+                </td>
+                <td class="px-6 py-4">{{ status_badge(order.status) }}</td>
+                <td class="px-6 py-4">{{ payment_badge(order.payment_status) }}</td>
+                <td class="px-6 py-4">{{ format_cents(order.total_cents) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No hay pedidos.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

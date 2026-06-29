@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% from "macros.html" import format_cents, status_badge, payment_badge, payment_method_label %}
+{% block title %}Pedido {{ order.order_number }} - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="mb-8">
+    <a href="{{ url_for('web_orders.list_orders') }}" class="text-indigo-600 hover:text-indigo-800 text-sm">&larr; Volver a pedidos</a>
+    <div class="flex justify-between items-start mt-2">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ order.order_number }}</h1>
+            <div id="order-status" class="mt-2 flex items-center gap-2 flex-wrap">
+                {{ status_badge(order.status) }}
+                {{ payment_badge(order.payment_status) }}
+            </div>
+            <div class="mt-2" id="delivery-date-block">
+                {% include "orders/_delivery_date.html" %}
+            </div>
+        </div>
+        <div class="flex space-x-2">
+            {% if order.status == 'draft' %}
+            <form method="post" action="{{ url_for('web_orders.confirm', order_id=order.id) }}"
+                  hx-post="{{ url_for('web_orders.confirm', order_id=order.id) }}"
+                  hx-target="#order-status" hx-swap="innerHTML">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700">Confirmar</button>
+            </form>
+            {% endif %}
+            {% if order.status == 'confirmed' %}
+            <form method="post" action="{{ url_for('web_orders.fulfill', order_id=order.id) }}"
+                  hx-post="{{ url_for('web_orders.fulfill', order_id=order.id) }}"
+                  hx-target="#order-status" hx-swap="innerHTML">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700">Entregar</button>
+            </form>
+            {% endif %}
+            {% if order.status in ['draft', 'confirmed'] %}
+            <form method="post" action="{{ url_for('web_orders.cancel', order_id=order.id) }}"
+                  hx-post="{{ url_for('web_orders.cancel', order_id=order.id) }}"
+                  hx-target="#order-status" hx-swap="innerHTML">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700">Cancelar</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-2 bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium mb-4">Artículos ({{ order.lines|length }})</h2>
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+                <tr>
+                    <th class="text-left text-xs font-medium text-gray-500 uppercase pb-2">SKU</th>
+                    <th class="text-left text-xs font-medium text-gray-500 uppercase pb-2">Producto</th>
+                    <th class="text-right text-xs font-medium text-gray-500 uppercase pb-2">Cant.</th>
+                    <th class="text-right text-xs font-medium text-gray-500 uppercase pb-2">Precio</th>
+                    <th class="text-right text-xs font-medium text-gray-500 uppercase pb-2">Total</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for line in order.lines %}
+                <tr>
+                    <td class="py-3 font-medium">{{ line.variant.sku }}</td>
+                    <td class="py-3 text-gray-500">{{ line.variant.display_name }}</td>
+                    <td class="py-3 text-right">{{ line.quantity }}</td>
+                    <td class="py-3 text-right">{{ format_cents(line.unit_price_cents) }}</td>
+                    <td class="py-3 text-right font-medium">{{ format_cents(line.line_total_cents) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="pt-4 text-right font-medium">Total</td>
+                    <td class="pt-4 text-right font-bold">{{ format_cents(order.total_cents) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="space-y-6">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium mb-4">Cliente</h2>
+            <dl class="space-y-2 text-sm">
+                {% if order.client %}
+                <div>
+                    <dt class="text-gray-500">Ficha de cliente</dt>
+                    <dd>
+                        <a href="{{ url_for('web_clients.detail', client_id=order.client.id) }}" class="text-indigo-600">
+                            {{ order.client.name }}
+                        </a>
+                    </dd>
+                </div>
+                {% endif %}
+                <div><dt class="text-gray-500">Nombre</dt><dd>{{ order.customer_name or '—' }}</dd></div>
+                <div><dt class="text-gray-500">Teléfono</dt><dd>{{ order.customer_phone or '—' }}</dd></div>
+                <div><dt class="text-gray-500">Email</dt><dd>{{ order.customer_email or '—' }}</dd></div>
+                <div><dt class="text-gray-500">Origen</dt><dd>{{ labels.ORDER_SOURCE.get(order.source, order.source) }}</dd></div>
+                {% if order.notes %}
+                <div><dt class="text-gray-500">Notas</dt><dd>{{ order.notes }}</dd></div>
+                {% endif %}
+            </dl>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium mb-4">Fecha de entrega</h2>
+            <form method="post" action="{{ url_for('web_orders.update_delivery', order_id=order.id) }}" class="space-y-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="date" name="delivery_date"
+                       value="{{ order.delivery_date.isoformat() if order.delivery_date else '' }}"
+                       class="block w-full border rounded-md px-3 py-2 text-sm">
+                <button type="submit" class="w-full px-3 py-2 bg-gray-800 text-white text-sm rounded-md hover:bg-gray-900">
+                    Guardar fecha
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-white shadow rounded-lg p-6">
+            {% include "orders/_payment_section.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}

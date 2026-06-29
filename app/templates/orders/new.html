@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Nuevo pedido - {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-900 mb-8">Nuevo pedido</h1>
+
+<form method="post" id="order-form" class="space-y-8">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Cliente</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Seleccionar cliente</label>
+                <select name="client_id" id="client_id" class="mt-1 block w-full border rounded-md px-3 py-2">
+                    <option value="">Mostrador / sin cliente</option>
+                    {% for client in clients %}
+                    <option value="{{ client.id }}"
+                            {% if request.args.get('client_id')|int == client.id %}selected{% endif %}>
+                        {{ client.display_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <a href="{{ url_for('web_clients.new_client', next=url_for('web_orders.new_order')) }}"
+                   class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar cliente</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-medium text-gray-900">Artículos</h2>
+            <button type="button" id="add-line" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar artículo</button>
+        </div>
+        <div id="cart-lines" class="space-y-3">
+            <div class="cart-line grid grid-cols-12 gap-3 items-end">
+                <div class="col-span-8">
+                    <label class="block text-sm font-medium text-gray-700">Producto</label>
+                    <select name="variant_id" required class="mt-1 block w-full border rounded-md px-3 py-2">
+                        <option value="">Seleccionar variante...</option>
+                        {% for variant in variants %}
+                        <option value="{{ variant.id }}">
+                            {{ variant.sku }} — {{ variant.display_name }}
+                            ({% if variant.inventory_item %}{{ variant.inventory_item.quantity_available }} disp.{% else %}0{% endif %})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-span-3">
+                    <label class="block text-sm font-medium text-gray-700">Cant.</label>
+                    <input type="number" name="quantity" min="1" value="1" required
+                           class="mt-1 block w-full border rounded-md px-3 py-2">
+                </div>
+                <div class="col-span-1">
+                    <button type="button" class="remove-line hidden text-red-600 text-sm py-2">✕</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Entrega</h2>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Fecha de entrega</label>
+            <input type="date" name="delivery_date" class="mt-1 block w-full max-w-xs border rounded-md px-3 py-2">
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Pago</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Método de pago</label>
+                <select name="payment_method" class="mt-1 block w-full border rounded-md px-3 py-2">
+                    <option value="">—</option>
+                    {% for value, label in payment_methods %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Monto pagado ($)</label>
+                <input type="number" name="amount_paid" step="0.01" min="0" value="0"
+                       class="mt-1 block w-full border rounded-md px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Referencia / comprobante</label>
+                <input type="text" name="payment_reference" class="mt-1 block w-full border rounded-md px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Notas de pago</label>
+                <input type="text" name="payment_notes" class="mt-1 block w-full border rounded-md px-3 py-2">
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <label class="block text-sm font-medium text-gray-700">Notas del pedido</label>
+        <textarea name="notes" rows="2" class="mt-1 block w-full border rounded-md px-3 py-2"></textarea>
+    </div>
+
+    <div class="flex space-x-4">
+        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Crear pedido</button>
+        <a href="{{ url_for('web_orders.list_orders') }}" class="px-4 py-2 border border-gray-300 rounded-md">Cancelar</a>
+    </div>
+</form>
+
+<template id="line-template">
+    <div class="cart-line grid grid-cols-12 gap-3 items-end">
+        <div class="col-span-8">
+            <label class="block text-sm font-medium text-gray-700">Producto</label>
+            <select name="variant_id" class="mt-1 block w-full border rounded-md px-3 py-2">
+                <option value="">Seleccionar variante...</option>
+                {% for variant in variants %}
+                <option value="{{ variant.id }}">
+                    {{ variant.sku }} — {{ variant.display_name }}
+                    ({% if variant.inventory_item %}{{ variant.inventory_item.quantity_available }} disp.{% else %}0{% endif %})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-span-3">
+            <label class="block text-sm font-medium text-gray-700">Cant.</label>
+            <input type="number" name="quantity" min="1" value="1" class="mt-1 block w-full border rounded-md px-3 py-2">
+        </div>
+        <div class="col-span-1">
+            <button type="button" class="remove-line text-red-600 text-sm py-2">✕</button>
+        </div>
+    </div>
+</template>
+
+<script>
+(function() {
+    const container = document.getElementById('cart-lines');
+    const template = document.getElementById('line-template');
+
+    function updateRemoveButtons() {
+        const lines = container.querySelectorAll('.cart-line');
+        lines.forEach((line) => {
+            const btn = line.querySelector('.remove-line');
+            btn.classList.toggle('hidden', lines.length <= 1);
+        });
+    }
+
+    document.getElementById('add-line').addEventListener('click', function() {
+        container.appendChild(template.content.cloneNode(true));
+        updateRemoveButtons();
+    });
+
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-line')) {
+            e.target.closest('.cart-line').remove();
+            updateRemoveButtons();
+        }
+    });
+
+    updateRemoveButtons();
+})();
+</script>
+{% endblock %}
