@@ -8,31 +8,65 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <nav class="bg-white border-b border-gray-200">
+    {% macro nav_links(link_class) %}
+    {% if current_user.is_authenticated %}
+    <a href="{{ url_for('web_dashboard.index') }}" class="{{ link_class }}">Panel</a>
+    <a href="{{ url_for('web_products.list_products') }}" class="{{ link_class }}">Productos</a>
+    <a href="{{ url_for('web_inventory.list_inventory') }}" class="{{ link_class }}">Inventario</a>
+    <a href="{{ url_for('web_inventory.movements') }}" class="{{ link_class }}">Movimientos</a>
+    <a href="{{ url_for('web_orders.list_orders') }}" class="{{ link_class }}">Pedidos</a>
+    <a href="{{ url_for('web_orders.procurement_plan') }}" class="{{ link_class }}">A comprar</a>
+    <a href="{{ url_for('web_clients.list_clients') }}" class="{{ link_class }}">Clientes</a>
+    {% if current_user.is_admin() %}
+    <a href="{{ url_for('web_users.list_users') }}" class="{{ link_class }}">Usuarios</a>
+    <a href="{{ url_for('web_logs.list_logs') }}" class="{{ link_class }}">Registro</a>
+    {% endif %}
+    {% endif %}
+    {% endmacro %}
+
+    <nav class="bg-white border-b border-gray-200 relative">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center space-x-6 overflow-x-auto">
-                    <a href="{{ url_for('web_dashboard.index') }}" class="text-xl font-bold text-indigo-600 shrink-0">{{ app_name }}</a>
-                    {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('web_dashboard.index') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">Panel</a>
-                    <a href="{{ url_for('web_products.list_products') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">Productos</a>
-                    <a href="{{ url_for('web_inventory.list_inventory') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">Inventario</a>
-                    <a href="{{ url_for('web_inventory.movements') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">Movimientos</a>
-                    <a href="{{ url_for('web_orders.list_orders') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">Pedidos</a>
-                    <a href="{{ url_for('web_orders.procurement_plan') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">A comprar</a>
-                    <a href="{{ url_for('web_clients.list_clients') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">Clientes</a>
-                    {% if current_user.is_admin() %}
-                    <a href="{{ url_for('web_users.list_users') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">Usuarios</a>
-                    <a href="{{ url_for('web_logs.list_logs') }}" class="text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap">Registro</a>
-                    {% endif %}
-                    {% endif %}
+            <div class="flex justify-between items-center h-16">
+                <a href="{{ url_for('web_dashboard.index') }}" class="text-xl font-bold text-indigo-600 shrink-0">{{ app_name }}</a>
+
+                <div class="hidden md:flex items-center space-x-6">
+                    {{ nav_links("text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap") }}
                 </div>
-                <div class="flex items-center space-x-4 shrink-0">
+
+                <div class="hidden md:flex items-center space-x-4 shrink-0">
                     {% if current_user.is_authenticated %}
                     <span class="text-sm text-gray-500">{{ current_user.name }} ({{ labels.USER_ROLES.get(current_user.role, current_user.role) }})</span>
                     <a href="{{ url_for('web_auth.logout') }}" class="text-sm text-indigo-600 hover:text-indigo-800">Salir</a>
                     {% else %}
                     <a href="{{ url_for('web_auth.login') }}" class="text-sm text-indigo-600 hover:text-indigo-800">Ingresar con Google</a>
+                    {% endif %}
+                </div>
+
+                <button type="button"
+                        id="mobile-menu-btn"
+                        class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        aria-controls="mobile-menu"
+                        aria-expanded="false"
+                        aria-label="Abrir menú">
+                    <svg class="h-6 w-6" id="mobile-menu-icon-open" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                    <svg class="h-6 w-6 hidden" id="mobile-menu-icon-close" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="mobile-menu" class="hidden md:hidden border-t border-gray-200 bg-white">
+            <div class="max-w-7xl mx-auto px-4 py-3 space-y-1">
+                {{ nav_links("mobile-nav-link block px-3 py-2 rounded-md text-base text-gray-700 hover:bg-gray-100 hover:text-gray-900") }}
+                <div class="border-t border-gray-200 pt-3 mt-3">
+                    {% if current_user.is_authenticated %}
+                    <p class="px-3 py-2 text-sm text-gray-500">{{ current_user.name }} ({{ labels.USER_ROLES.get(current_user.role, current_user.role) }})</p>
+                    <a href="{{ url_for('web_auth.logout') }}" class="mobile-nav-link block px-3 py-2 rounded-md text-base text-indigo-600 hover:bg-gray-100">Salir</a>
+                    {% else %}
+                    <a href="{{ url_for('web_auth.login') }}" class="mobile-nav-link block px-3 py-2 rounded-md text-base text-indigo-600 hover:bg-gray-100">Ingresar con Google</a>
                     {% endif %}
                 </div>
             </div>
@@ -54,5 +88,41 @@
 
         {% block content %}{% endblock %}
     </main>
+
+    <script>
+    (function () {
+        var btn = document.getElementById("mobile-menu-btn");
+        var menu = document.getElementById("mobile-menu");
+        var iconOpen = document.getElementById("mobile-menu-icon-open");
+        var iconClose = document.getElementById("mobile-menu-icon-close");
+        if (!btn || !menu) return;
+
+        function setOpen(open) {
+            menu.classList.toggle("hidden", !open);
+            iconOpen.classList.toggle("hidden", open);
+            iconClose.classList.toggle("hidden", !open);
+            btn.setAttribute("aria-expanded", open ? "true" : "false");
+            btn.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
+        }
+
+        btn.addEventListener("click", function () {
+            setOpen(menu.classList.contains("hidden"));
+        });
+
+        menu.querySelectorAll(".mobile-nav-link").forEach(function (link) {
+            link.addEventListener("click", function () { setOpen(false); });
+        });
+
+        document.addEventListener("click", function (e) {
+            if (!menu.classList.contains("hidden") && !menu.contains(e.target) && !btn.contains(e.target)) {
+                setOpen(false);
+            }
+        });
+
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") setOpen(false);
+        });
+    })();
+    </script>
 </body>
 </html>
