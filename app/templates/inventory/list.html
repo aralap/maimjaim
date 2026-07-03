@@ -38,7 +38,7 @@
             <label class="block text-sm font-medium text-gray-700">Variante</label>
             <select id="receive-variant" class="mt-1 block w-full border rounded-md px-3 py-2">
                 {% for item in items %}
-                <option value="{{ item.variant_id }}">{{ item.variant.sku }}</option>
+                <option value="{{ item.variant_id }}">{{ item.variant.sku }} — {{ item.variant.product.name }}</option>
                 {% endfor %}
             </select>
         </div>
