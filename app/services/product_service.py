@@ -271,6 +271,56 @@ class ProductService:
         return variant
 
     @staticmethod
+    def update_variant(
+        variant_id: int,
+        *,
+        price_cents: int | None = None,
+        cost_cents: int | None = None,
+        reorder_point: int | None = None,
+        user_id: int | None = None,
+    ) -> ProductVariant:
+        variant = db.session.get(ProductVariant, variant_id)
+        if not variant:
+            raise InventoryError(f"Variante {variant_id} no encontrada")
+
+        before = {
+            "sku": variant.sku,
+            "price_cents": variant.price_cents,
+            "cost_cents": variant.cost_cents,
+            "reorder_point": variant.inventory_item.reorder_point if variant.inventory_item else None,
+        }
+        if price_cents is not None:
+            if price_cents < 0:
+                raise InventoryError("El precio no puede ser negativo")
+            variant.price_cents = price_cents
+        if cost_cents is not None:
+            if cost_cents < 0:
+                raise InventoryError("El costo no puede ser negativo")
+            variant.cost_cents = cost_cents
+        if reorder_point is not None:
+            if reorder_point < 0:
+                raise InventoryError("El stock mínimo no puede ser negativo")
+            if variant.inventory_item:
+                variant.inventory_item.reorder_point = reorder_point
+
+        after = {
+            "sku": variant.sku,
+            "price_cents": variant.price_cents,
+            "cost_cents": variant.cost_cents,
+            "reorder_point": variant.inventory_item.reorder_point if variant.inventory_item else None,
+        }
+        AuditService.log(
+            "product.variant.update",
+            "product",
+            f"Precio actualizado: {variant.sku}",
+            entity_id=variant.product_id,
+            user_id=user_id,
+            details={"before": before, "after": after},
+        )
+        db.session.commit()
+        return variant
+
+    @staticmethod
     def seed_default_catalog(user_id: int | None = None) -> int:
         """Carga el catálogo predeterminado. Omite SKUs existentes."""
         created = 0

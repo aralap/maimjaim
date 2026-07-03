@@ -16,6 +16,8 @@
         </div>
         {% if current_user.is_admin() %}
         <div class="flex space-x-3">
+            <a href="{{ url_for('web_products.edit_product', product_id=product.id) }}#precios"
+               class="text-sm text-indigo-600 hover:text-indigo-800">Editar precios</a>
             <a href="{{ url_for('web_products.edit_product', product_id=product.id) }}"
                class="text-sm text-indigo-600 hover:text-indigo-800">Editar</a>
             {% if product.is_active %}
@@ -59,10 +61,13 @@
         <thead class="bg-gray-50">
             <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio venta</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Costo</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock disp.</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock mín.</th>
+                {% if current_user.is_admin() %}
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
@@ -79,9 +84,52 @@
                 <td class="px-6 py-4">
                     {% if variant.inventory_item %}{{ variant.inventory_item.reorder_point }}{% else %}—{% endif %}
                 </td>
+                {% if current_user.is_admin() %}
+                <td class="px-6 py-4">
+                    <button type="button"
+                            class="text-sm text-indigo-600 hover:text-indigo-800"
+                            onclick="document.getElementById('pricing-form-{{ variant.id }}').classList.toggle('hidden')">
+                        Cambiar precio
+                    </button>
+                </td>
+                {% endif %}
             </tr>
+            {% if current_user.is_admin() %}
+            <tr id="pricing-form-{{ variant.id }}" class="hidden bg-gray-50">
+                <td colspan="6" class="px-6 py-4">
+                    <form method="post"
+                          action="{{ url_for('web_products.update_variant_pricing', product_id=product.id, variant_id=variant.id) }}"
+                          class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end max-w-3xl">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500">Precio venta ($)</label>
+                            <input type="number" name="price" step="0.01" min="0"
+                                   value="{{ '%.2f'|format(variant.price_cents / 100) }}"
+                                   class="mt-1 block w-full border rounded-md px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500">Costo ($)</label>
+                            <input type="number" name="cost" step="0.01" min="0"
+                                   value="{{ '%.2f'|format(variant.cost_cents / 100) }}"
+                                   class="mt-1 block w-full border rounded-md px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500">Stock mínimo</label>
+                            <input type="number" name="reorder_point" min="0"
+                                   value="{{ variant.inventory_item.reorder_point if variant.inventory_item else 0 }}"
+                                   class="mt-1 block w-full border rounded-md px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <button type="submit" class="w-full px-3 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700">
+                                Guardar
+                            </button>
+                        </div>
+                    </form>
+                </td>
+            </tr>
+            {% endif %}
             {% else %}
-            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No hay variantes.</td></tr>
+            <tr><td colspan="{% if current_user.is_admin() %}6{% else %}5{% endif %}" class="px-6 py-8 text-center text-gray-500">No hay variantes.</td></tr>
             {% endfor %}
         </tbody>
     </table>

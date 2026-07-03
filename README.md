@@ -82,8 +82,13 @@ flask --app wsgi run --debug --port 5000
 **Terminal 2 — ngrok (tunnel to the same port Flask uses):**
 
 ```bash
-ngrok http --url=steady-beetle-alert.ngrok-free.app 5000
+# macOS: use 127.0.0.1, not localhost — port 5000 is often taken by AirPlay Receiver
+ngrok http --url=steady-beetle-alert.ngrok-free.app 127.0.0.1:5000
 ```
+
+> **403 Forbidden via ngrok?** On macOS, `localhost:5000` may hit AirPlay instead of Flask.
+> Use `127.0.0.1:5000` in ngrok, or run Flask on another port (e.g. `5001`) and tunnel that.
+> You can also disable **AirPlay Receiver** in System Settings → General → AirDrop & Handoff.
 
 **`.env` for ngrok:**
 

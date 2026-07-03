@@ -84,6 +84,17 @@ def edit_product(product_id):
                 supplier=request.form.get("supplier") or None,
                 user_id=current_user.id,
             )
+            for variant in product.variants:
+                price_key = f"variant_price_{variant.id}"
+                if price_key not in request.form:
+                    continue
+                ProductService.update_variant(
+                    variant.id,
+                    price_cents=int(float(request.form.get(price_key, 0) or 0) * 100),
+                    cost_cents=int(float(request.form.get(f"variant_cost_{variant.id}", 0) or 0) * 100),
+                    reorder_point=int(request.form.get(f"variant_reorder_{variant.id}", 0) or 0),
+                    user_id=current_user.id,
+                )
             flash("Producto actualizado.", "success")
             return redirect(url_for("web_products.detail", product_id=product_id))
         except (InventoryError, ValueError) as exc:
@@ -150,3 +161,28 @@ def new_variant(product_id):
             flash(str(exc), "error")
 
     return render_template("products/new_variant.html", product=product)
+
+
+@bp.route("/<int:product_id>/variants/<int:variant_id>/pricing", methods=["POST"])
+@admin_required
+def update_variant_pricing(product_id, variant_id):
+    product = ProductService.get_product(product_id)
+    if not product:
+        flash("Producto no encontrado.", "error")
+        return redirect(url_for("web_products.list_products"))
+    variant = ProductService.get_variant(variant_id)
+    if not variant or variant.product_id != product_id:
+        flash("Variante no encontrada.", "error")
+        return redirect(url_for("web_products.detail", product_id=product_id))
+    try:
+        ProductService.update_variant(
+            variant_id,
+            price_cents=int(float(request.form.get("price", 0) or 0) * 100),
+            cost_cents=int(float(request.form.get("cost", 0) or 0) * 100),
+            reorder_point=int(request.form.get("reorder_point", 0) or 0),
+            user_id=current_user.id,
+        )
+        flash("Precio actualizado.", "success")
+    except (InventoryError, ValueError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("web_products.detail", product_id=product_id))

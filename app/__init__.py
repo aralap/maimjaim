@@ -3,7 +3,7 @@ from flask_login import current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app import labels
-from app.config import get_settings, is_development
+from app.config import get_settings, is_development, resolve_database_url
 from app.extensions import csrf, db, login_manager, migrate, oauth
 from app.models import User
 from app.oauth_setup import oauth_app_host, oauth_app_origin
@@ -15,7 +15,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     settings = get_settings()
 
     app.config["SECRET_KEY"] = settings.secret_key
-    app.config["SQLALCHEMY_DATABASE_URI"] = settings.database_url
+    app.config["SQLALCHEMY_DATABASE_URI"] = resolve_database_url(settings.database_url)
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SESSION_COOKIE_SECURE"] = (
         settings.oauth_redirect_uri.startswith("https://") or not is_development()

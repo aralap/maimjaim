@@ -46,6 +46,7 @@ AUDIT_ACTIONS = {
     "product.deactivate": "Producto desactivado",
     "product.activate": "Producto reactivado",
     "product.variant.create": "Variante agregada",
+    "product.variant.update": "Precio/costo actualizado",
     "catalog.seed": "Catálogo cargado",
     "inventory.receive": "Ingreso de stock",
     "inventory.adjust": "Ajuste de stock",
