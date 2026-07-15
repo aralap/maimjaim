@@ -14,6 +14,13 @@ In .env on the server:
 Then run once in a Bash console:
   cd /home/aralap/maimjaim/maimjaim && source .venv/bin/activate
   flask --app wsgi db upgrade
+
+Import clients from a private CSV (upload via scp to a non-public path, e.g. ~/private/):
+  flask --app wsgi import-clients --csv ~/private/clients_from_whatsapp.csv --dry-run
+  flask --app wsgi import-clients --csv ~/private/clients_from_whatsapp.csv --min-confidence high
+  flask --app wsgi import-clients --csv ~/private/clients_hydroponic_buyers.csv --update-existing
+
+Client PII is encrypted at rest (DATA_ENCRYPTION_KEY). Never put the CSV under static/ or the web root.
 """
 import os
 import sys

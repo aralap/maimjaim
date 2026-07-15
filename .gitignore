@@ -18,3 +18,8 @@ instance/
 htmlcov/
 .coverage
 *.pem
+# Private client exports / import CSVs (PII)
+private/
+private_import/
+*_from_whatsapp*.csv
+clients_*.csv

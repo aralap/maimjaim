@@ -43,7 +43,9 @@ class ClientService:
         tax_id: str | None = None,
         notes: str | None = None,
         preferred_payment_method: str | None = None,
+        is_active: bool = True,
         user_id: int | None = None,
+        commit: bool = True,
     ) -> Client:
         name = name.strip()
         if not name:
@@ -58,6 +60,7 @@ class ClientService:
             tax_id=tax_id or None,
             notes=notes or None,
             preferred_payment_method=preferred_payment_method or None,
+            is_active=is_active,
         )
         db.session.add(client)
         db.session.flush()
@@ -69,11 +72,18 @@ class ClientService:
             user_id=user_id,
             details=_client_details(client),
         )
-        db.session.commit()
+        if commit:
+            db.session.commit()
         return client
 
     @staticmethod
-    def update_client(client_id: int, *, user_id: int | None = None, **fields) -> Client:
+    def update_client(
+        client_id: int,
+        *,
+        user_id: int | None = None,
+        commit: bool = True,
+        **fields,
+    ) -> Client:
         client = db.session.get(Client, client_id)
         if not client:
             raise InventoryError(f"Cliente {client_id} no encontrado")
@@ -100,5 +110,19 @@ class ClientService:
             user_id=user_id,
             details={"before": before, "after": _client_details(client)},
         )
-        db.session.commit()
+        if commit:
+            db.session.commit()
         return client
+
+    @staticmethod
+    def index_by_phone(active_only: bool = False) -> dict[str, Client]:
+        """Map phone digit-key → client (phones are encrypted at rest)."""
+        from app.services.client_import_service import phone_match_key
+
+        clients = ClientService.list_clients(active_only=active_only)
+        index: dict[str, Client] = {}
+        for client in clients:
+            key = phone_match_key(client.phone)
+            if key and key not in index:
+                index[key] = client
+        return index
