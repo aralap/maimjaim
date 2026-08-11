@@ -283,6 +283,64 @@ class OrderService:
         return order
 
     @staticmethod
+    def _get_draft_order(order_id: int) -> Order:
+        order = db.session.get(Order, order_id)
+        if not order:
+            raise InventoryError(f"Pedido {order_id} no encontrado")
+        if order.status != Order.STATUS_DRAFT:
+            raise InvalidOrderStateError(order_id, order.status, "edit_lines")
+        return order
+
+    @staticmethod
+    def add_line(order_id: int, line_input: OrderLineInput, user_id: int | None = None) -> Order:
+        order = OrderService._get_draft_order(order_id)
+        variant = OrderService._resolve_variant(line_input)
+        existing = next((item for item in order.lines if item.variant_id == variant.id), None)
+        if existing:
+            existing.quantity += line_input.quantity
+            summary = f"Cantidad actualizada en {order.order_number} ({variant.sku})"
+        else:
+            price_type, unit_price_cents = OrderService.resolve_line_price(
+                variant,
+                line_input.price_type,
+                line_input.unit_price_cents,
+            )
+            order.lines.append(
+                OrderLine(
+                    variant=variant,
+                    quantity=line_input.quantity,
+                    unit_price_cents=unit_price_cents,
+                    price_type=price_type,
+                )
+            )
+            summary = f"Artículo agregado a {order.order_number} ({variant.sku})"
+        order.sync_payment_status()
+        OrderService._audit_order(order, "order.line.add", summary, user_id=user_id)
+        db.session.commit()
+        return order
+
+    @staticmethod
+    def remove_line(order_id: int, line_id: int, user_id: int | None = None) -> Order:
+        order = OrderService._get_draft_order(order_id)
+        if len(order.lines) <= 1:
+            raise InventoryError("El pedido debe tener al menos un artículo")
+        line = next((item for item in order.lines if item.id == line_id), None)
+        if not line:
+            raise InventoryError("Línea de pedido no encontrada")
+        sku = line.variant.sku
+        db.session.delete(line)
+        db.session.flush()
+        order.sync_payment_status()
+        OrderService._audit_order(
+            order,
+            "order.line.remove",
+            f"Artículo quitado de {order.order_number} ({sku})",
+            user_id=user_id,
+        )
+        db.session.commit()
+        return order
+
+    @staticmethod
     def update_delivery_date(order_id: int, delivery_date: date | None, user_id: int | None = None) -> Order:
         order = db.session.get(Order, order_id)
         if not order:

@@ -23,6 +23,7 @@ class InvalidOrderStateError(OrderError):
         "fulfill": "entregar",
         "cancel": "cancelar",
         "update_price": "cambiar precios en",
+        "edit_lines": "editar",
     }
 
     def __init__(self, order_id: int, current_status: str, action: str):

@@ -55,6 +55,9 @@
                     <th class="text-right text-xs font-medium text-gray-500 uppercase pb-2">Cant.</th>
                     <th class="text-right text-xs font-medium text-gray-500 uppercase pb-2">Precio</th>
                     <th class="text-right text-xs font-medium text-gray-500 uppercase pb-2">Total</th>
+                    {% if order.status == 'draft' %}
+                    <th class="text-right text-xs font-medium text-gray-500 uppercase pb-2"> </th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -81,10 +84,22 @@
                         {% endif %}
                     </td>
                     <td class="py-3 text-right font-medium">{{ format_cents(line.line_total_cents) }}</td>
+                    {% if order.status == 'draft' %}
+                    <td class="py-3 text-right">
+                        {% if order.lines|length > 1 %}
+                        <form method="post"
+                              action="{{ url_for('web_orders.remove_line', order_id=order.id, line_id=line.id) }}"
+                              onsubmit="return confirm('¿Quitar este artículo?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-sm text-red-600 hover:text-red-800">Quitar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                 </tr>
                 {% if order.status in ['draft', 'confirmed'] %}
                 <tr id="price-form-{{ line.id }}" class="hidden bg-gray-50">
-                    <td colspan="5" class="py-3">
+                    <td colspan="{% if order.status == 'draft' %}6{% else %}5{% endif %}" class="py-3">
                         <form method="post"
                               action="{{ url_for('web_orders.update_line_price', order_id=order.id, line_id=line.id) }}"
                               class="flex flex-wrap gap-3 items-end justify-end">
@@ -121,11 +136,69 @@
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="4" class="pt-4 text-right font-medium">Total</td>
+                    <td colspan="{% if order.status == 'draft' %}5{% else %}4{% endif %}" class="pt-4 text-right font-medium">Total</td>
                     <td class="pt-4 text-right font-bold">{{ format_cents(order.total_cents) }}</td>
+                    {% if order.status == 'draft' %}<td></td>{% endif %}
                 </tr>
             </tfoot>
         </table>
+
+        {% if order.status == 'draft' %}
+        <form method="post" action="{{ url_for('web_orders.add_line', order_id=order.id) }}" class="mt-6 border-t pt-4" id="add-line-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3 class="text-sm font-medium text-gray-900 mb-3">Agregar artículo</h3>
+            {% include "orders/_cart_line.html" %}
+            <button type="submit" class="mt-4 px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700">
+                Agregar
+            </button>
+        </form>
+        <script id="variant-price-data" type="application/json">{{ variant_prices|tojson }}</script>
+        <script>
+        (function() {
+            const form = document.getElementById('add-line-form');
+            if (!form) return;
+            const priceData = JSON.parse(document.getElementById('variant-price-data').textContent);
+            const line = form.querySelector('.cart-line');
+            const variantSelect = line.querySelector('select[name="variant_id"]');
+            const priceSelect = line.querySelector('select[name="price_type"]');
+            const customWrap = line.querySelector('.custom-price-wrap');
+            const customInput = line.querySelector('input[name="custom_price"]');
+            const removeBtn = line.querySelector('.remove-line');
+            if (removeBtn) removeBtn.classList.add('hidden');
+
+            function fillPriceOptions() {
+                const data = priceData[variantSelect.value] || {};
+                const current = priceSelect.value || 'retail';
+                priceSelect.innerHTML = '';
+                const lista = document.createElement('option');
+                lista.value = 'retail';
+                lista.textContent = data.price ? ('Lista ($' + data.price + ')') : 'Lista';
+                priceSelect.appendChild(lista);
+                if (data.wholesale != null) {
+                    const mayorista = document.createElement('option');
+                    mayorista.value = 'wholesale';
+                    mayorista.textContent = 'Mayorista ($' + data.wholesale + ')';
+                    priceSelect.appendChild(mayorista);
+                }
+                const otro = document.createElement('option');
+                otro.value = 'custom';
+                otro.textContent = 'Otro';
+                priceSelect.appendChild(otro);
+                priceSelect.value = (current === 'wholesale' && data.wholesale == null) ? 'retail' : current;
+                if (![...priceSelect.options].some(opt => opt.value === priceSelect.value)) {
+                    priceSelect.value = 'retail';
+                }
+                const isCustom = priceSelect.value === 'custom';
+                customWrap.classList.toggle('hidden', !isCustom);
+                customInput.required = isCustom;
+                if (isCustom && !customInput.value) customInput.value = data.price || '';
+            }
+            variantSelect.addEventListener('change', fillPriceOptions);
+            priceSelect.addEventListener('change', fillPriceOptions);
+            fillPriceOptions();
+        })();
+        </script>
+        {% endif %}
     </div>
 
     <div class="space-y-6">

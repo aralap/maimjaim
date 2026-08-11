@@ -130,6 +130,51 @@ class TestOrderService:
                 user_id=user.id,
             )
 
+    def test_draft_add_and_remove_lines(self, app, variant, user):
+        from app.services import ProductService
+        from app.services.exceptions import InventoryError, InvalidOrderStateError
+
+        other = ProductService.create_product(
+            name="Other",
+            sku="OTHER-SKU",
+            price_cents=2500,
+            initial_stock=5,
+        ).variants[0]
+        order = OrderService.create_order(
+            lines=[OrderLineInput(variant_id=variant.id, quantity=1)],
+            user_id=user.id,
+        )
+        order = OrderService.add_line(
+            order.id,
+            OrderLineInput(variant_id=other.id, quantity=2),
+            user_id=user.id,
+        )
+        assert len(order.lines) == 2
+        assert order.total_cents == variant.price_cents + (2500 * 2)
+
+        order = OrderService.add_line(
+            order.id,
+            OrderLineInput(variant_id=variant.id, quantity=3),
+            user_id=user.id,
+        )
+        merged = next(line for line in order.lines if line.variant_id == variant.id)
+        assert merged.quantity == 4
+
+        extra_id = next(line.id for line in order.lines if line.variant_id == other.id)
+        order = OrderService.remove_line(order.id, extra_id, user_id=user.id)
+        assert len(order.lines) == 1
+
+        with pytest.raises(InventoryError):
+            OrderService.remove_line(order.id, order.lines[0].id, user_id=user.id)
+
+        OrderService.confirm_order(order.id, user_id=user.id)
+        with pytest.raises(InvalidOrderStateError):
+            OrderService.add_line(
+                order.id,
+                OrderLineInput(variant_id=other.id, quantity=1),
+                user_id=user.id,
+            )
+
 
 class TestAPI:
     def test_health(self, client):

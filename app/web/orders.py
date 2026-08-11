@@ -58,6 +58,34 @@ def _parse_delivery_date(form) -> date | None:
     return date.fromisoformat(raw)
 
 
+def _active_variants():
+    variants = []
+    for product in ProductService.list_products():
+        variants.extend(product.variants)
+    return variants
+
+
+def _variant_prices(variants) -> dict:
+    return {
+        str(variant.id): {
+            "price": f"{variant.price_cents / 100:.2f}",
+            "wholesale": (
+                f"{variant.wholesale_price_cents / 100:.2f}"
+                if variant.wholesale_price_cents is not None
+                else None
+            ),
+        }
+        for variant in variants
+    }
+
+
+def _parse_single_line(form) -> OrderLineInput:
+    lines = _parse_cart_lines(form)
+    if not lines:
+        raise InventoryError("Elegí un producto y una cantidad")
+    return lines[0]
+
+
 @bp.route("/")
 @approved_required
 def list_orders():
@@ -77,9 +105,7 @@ def procurement_plan():
 @bp.route("/new", methods=["GET", "POST"])
 @approved_required
 def new_order():
-    variants = []
-    for product in ProductService.list_products():
-        variants.extend(product.variants)
+    variants = _active_variants()
     clients = ClientService.list_clients()
 
     if request.method == "POST":
@@ -104,17 +130,7 @@ def new_order():
         except (InventoryError, ValueError) as exc:
             flash(str(exc), "error")
 
-    variant_prices = {
-        str(variant.id): {
-            "price": f"{variant.price_cents / 100:.2f}",
-            "wholesale": (
-                f"{variant.wholesale_price_cents / 100:.2f}"
-                if variant.wholesale_price_cents is not None
-                else None
-            ),
-        }
-        for variant in variants
-    }
+    variant_prices = _variant_prices(variants)
     return render_template(
         "orders/new.html",
         variants=variants,
@@ -131,11 +147,36 @@ def detail(order_id):
     if not order:
         flash("Pedido no encontrado.", "error")
         return redirect(url_for("web_orders.list_orders"))
+    variants = _active_variants() if order.status == "draft" else []
     return render_template(
         "orders/detail.html",
         order=order,
         payment_methods=PAYMENT_METHOD_CHOICES,
+        variants=variants,
+        variant_prices=_variant_prices(variants),
     )
+
+
+@bp.route("/<int:order_id>/lines", methods=["POST"])
+@approved_required
+def add_line(order_id):
+    try:
+        OrderService.add_line(order_id, _parse_single_line(request.form), user_id=current_user.id)
+        flash("Artículo agregado.", "success")
+    except (InventoryError, InvalidOrderStateError, ValueError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("web_orders.detail", order_id=order_id))
+
+
+@bp.route("/<int:order_id>/lines/<int:line_id>/remove", methods=["POST"])
+@approved_required
+def remove_line(order_id, line_id):
+    try:
+        OrderService.remove_line(order_id, line_id, user_id=current_user.id)
+        flash("Artículo quitado.", "success")
+    except (InventoryError, InvalidOrderStateError, ValueError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("web_orders.detail", order_id=order_id))
 
 
 @bp.route("/<int:order_id>/lines/<int:line_id>/price", methods=["POST"])
