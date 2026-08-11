@@ -40,6 +40,12 @@ USER_ROLES = {
     "staff": "Personal",
 }
 
+PRICE_TYPES = {
+    "retail": "Lista",
+    "wholesale": "Mayorista",
+    "custom": "Otro",
+}
+
 AUDIT_ACTIONS = {
     "product.create": "Producto creado",
     "product.update": "Producto actualizado",
@@ -56,6 +62,7 @@ AUDIT_ACTIONS = {
     "order.cancel": "Pedido cancelado",
     "order.payment.update": "Pago actualizado",
     "order.delivery.update": "Entrega actualizada",
+    "order.line.price.update": "Precio de línea actualizado",
     "client.create": "Cliente creado",
     "client.update": "Cliente actualizado",
     "auth.login": "Inicio de sesión",

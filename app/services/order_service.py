@@ -17,6 +17,8 @@ class OrderLineInput:
     variant_id: int | None = None
     sku: str | None = None
     quantity: int = 1
+    price_type: str | None = None
+    unit_price_cents: int | None = None
 
 
 @dataclass
@@ -50,7 +52,12 @@ class OrderService:
             "amount_paid_cents": order.amount_paid_cents,
             "total_cents": order.total_cents,
             "lines": [
-                {"sku": line.variant.sku, "quantity": line.quantity, "unit_price_cents": line.unit_price_cents}
+                {
+                    "sku": line.variant.sku,
+                    "quantity": line.quantity,
+                    "unit_price_cents": line.unit_price_cents,
+                    "price_type": line.price_type,
+                }
                 for line in order.lines
             ],
         }
@@ -80,6 +87,27 @@ class OrderService:
         if line.quantity <= 0:
             raise InventoryError("La cantidad debe ser mayor a cero")
         return variant
+
+    @staticmethod
+    def resolve_line_price(
+        variant: ProductVariant,
+        price_type: str | None = None,
+        unit_price_cents: int | None = None,
+    ) -> tuple[str, int]:
+        chosen = (price_type or OrderLine.PRICE_RETAIL).strip().lower()
+        if chosen == OrderLine.PRICE_RETAIL:
+            return OrderLine.PRICE_RETAIL, variant.price_cents
+        if chosen == OrderLine.PRICE_WHOLESALE:
+            if variant.wholesale_price_cents is None:
+                raise InventoryError(f"{variant.sku} no tiene precio mayorista")
+            return OrderLine.PRICE_WHOLESALE, variant.wholesale_price_cents
+        if chosen in {OrderLine.PRICE_CUSTOM, "otro"}:
+            if unit_price_cents is None:
+                raise InventoryError("Indicá el precio personalizado")
+            if unit_price_cents < 0:
+                raise InventoryError("El precio no puede ser negativo")
+            return OrderLine.PRICE_CUSTOM, unit_price_cents
+        raise InventoryError("Tipo de precio inválido")
 
     @staticmethod
     def _apply_client_to_order(order: Order, client_id: int | None) -> None:
@@ -163,11 +191,17 @@ class OrderService:
 
         for line_input in lines:
             variant = OrderService._resolve_variant(line_input)
+            price_type, unit_price_cents = OrderService.resolve_line_price(
+                variant,
+                line_input.price_type,
+                line_input.unit_price_cents,
+            )
             order.lines.append(
                 OrderLine(
                     variant=variant,
                     quantity=line_input.quantity,
-                    unit_price_cents=variant.price_cents,
+                    unit_price_cents=unit_price_cents,
+                    price_type=price_type,
                 )
             )
 
@@ -209,6 +243,44 @@ class OrderService:
     @staticmethod
     def get_order(order_id: int) -> Order | None:
         return db.session.get(Order, order_id)
+
+    @staticmethod
+    def update_line_price(
+        order_id: int,
+        line_id: int,
+        *,
+        price_type: str | None = None,
+        unit_price_cents: int | None = None,
+        user_id: int | None = None,
+    ) -> Order:
+        order = db.session.get(Order, order_id)
+        if not order:
+            raise InventoryError(f"Pedido {order_id} no encontrado")
+        if order.status not in {Order.STATUS_DRAFT, Order.STATUS_CONFIRMED}:
+            raise InvalidOrderStateError(order_id, order.status, "update_price")
+
+        line = next((item for item in order.lines if item.id == line_id), None)
+        if not line:
+            raise InventoryError("Línea de pedido no encontrada")
+
+        before = {"price_type": line.price_type, "unit_price_cents": line.unit_price_cents}
+        chosen_type, chosen_price = OrderService.resolve_line_price(
+            line.variant,
+            price_type,
+            unit_price_cents,
+        )
+        line.price_type = chosen_type
+        line.unit_price_cents = chosen_price
+        order.sync_payment_status()
+        OrderService._audit_order(
+            order,
+            "order.line.price.update",
+            f"Precio actualizado en {order.order_number} ({line.variant.sku})",
+            user_id=user_id,
+            extra={"line_id": line.id, "before": before, "after": {"price_type": chosen_type, "unit_price_cents": chosen_price}},
+        )
+        db.session.commit()
+        return order
 
     @staticmethod
     def update_delivery_date(order_id: int, delivery_date: date | None, user_id: int | None = None) -> Order:

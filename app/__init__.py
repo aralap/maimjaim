@@ -125,9 +125,15 @@ def _ensure_default_catalog(app: Flask) -> None:
     if app.config.get("TESTING"):
         return
     with app.app_context():
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+
         from app.models import ProductVariant
         from app.services import ProductService
 
-        if ProductVariant.query.count() == 0:
-            ProductService.seed_default_catalog()
+        try:
+            if ProductVariant.query.count() == 0:
+                ProductService.seed_default_catalog()
+        except (OperationalError, ProgrammingError):
+            # Schema not migrated yet (e.g. flask db upgrade on a new column).
+            return
 

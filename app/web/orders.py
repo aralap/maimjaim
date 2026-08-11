@@ -4,6 +4,8 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from app.labels import PAYMENT_METHOD_CHOICES
+from app.money import optional_pesos_to_cents
+from app.models import OrderLine
 from app.services import ClientService, OrderService, ProductService
 from app.services.exceptions import InvalidOrderStateError, InventoryError
 from app.services.order_service import OrderLineInput, PaymentInput
@@ -15,14 +17,26 @@ bp = Blueprint("web_orders", __name__, url_prefix="/orders")
 def _parse_cart_lines(form) -> list[OrderLineInput]:
     variant_ids = form.getlist("variant_id")
     quantities = form.getlist("quantity")
+    price_types = form.getlist("price_type")
+    custom_prices = form.getlist("custom_price")
     lines = []
-    for variant_id, qty in zip(variant_ids, quantities):
+    for index, (variant_id, qty) in enumerate(zip(variant_ids, quantities)):
         if not variant_id:
             continue
         quantity = int(qty)
         if quantity <= 0:
             continue
-        lines.append(OrderLineInput(variant_id=int(variant_id), quantity=quantity))
+        price_type = price_types[index] if index < len(price_types) else OrderLine.PRICE_RETAIL
+        custom_raw = custom_prices[index] if index < len(custom_prices) else None
+        custom_cents = optional_pesos_to_cents(custom_raw)
+        lines.append(
+            OrderLineInput(
+                variant_id=int(variant_id),
+                quantity=quantity,
+                price_type=price_type or OrderLine.PRICE_RETAIL,
+                unit_price_cents=custom_cents,
+            )
+        )
     return lines
 
 
@@ -90,9 +104,21 @@ def new_order():
         except (InventoryError, ValueError) as exc:
             flash(str(exc), "error")
 
+    variant_prices = {
+        str(variant.id): {
+            "price": f"{variant.price_cents / 100:.2f}",
+            "wholesale": (
+                f"{variant.wholesale_price_cents / 100:.2f}"
+                if variant.wholesale_price_cents is not None
+                else None
+            ),
+        }
+        for variant in variants
+    }
     return render_template(
         "orders/new.html",
         variants=variants,
+        variant_prices=variant_prices,
         clients=clients,
         payment_methods=PAYMENT_METHOD_CHOICES,
     )
@@ -110,6 +136,25 @@ def detail(order_id):
         order=order,
         payment_methods=PAYMENT_METHOD_CHOICES,
     )
+
+
+@bp.route("/<int:order_id>/lines/<int:line_id>/price", methods=["POST"])
+@approved_required
+def update_line_price(order_id, line_id):
+    try:
+        price_type = request.form.get("price_type") or OrderLine.PRICE_RETAIL
+        custom_cents = optional_pesos_to_cents(request.form.get("custom_price"))
+        OrderService.update_line_price(
+            order_id,
+            line_id,
+            price_type=price_type,
+            unit_price_cents=custom_cents,
+            user_id=current_user.id,
+        )
+        flash("Precio actualizado.", "success")
+    except (InventoryError, InvalidOrderStateError, ValueError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("web_orders.detail", order_id=order_id))
 
 
 @bp.route("/<int:order_id>/delivery", methods=["POST"])

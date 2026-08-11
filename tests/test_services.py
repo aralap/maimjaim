@@ -77,6 +77,59 @@ class TestOrderService:
         with pytest.raises(InsufficientStockError):
             OrderService.confirm_order(order.id, user_id=user.id)
 
+    def test_order_defaults_to_retail_price(self, app, variant, user):
+        order = OrderService.create_order(
+            lines=[OrderLineInput(variant_id=variant.id, quantity=1)],
+            user_id=user.id,
+        )
+        assert order.lines[0].price_type == "retail"
+        assert order.lines[0].unit_price_cents == variant.price_cents
+
+    def test_order_wholesale_price(self, app, variant, user):
+        from app.services import ProductService
+
+        ProductService.update_variant(variant.id, wholesale_price_cents=700, update_wholesale=True)
+        order = OrderService.create_order(
+            lines=[OrderLineInput(variant_id=variant.id, quantity=2, price_type="wholesale")],
+            user_id=user.id,
+        )
+        assert order.lines[0].price_type == "wholesale"
+        assert order.lines[0].unit_price_cents == 700
+        assert order.total_cents == 1400
+
+    def test_order_custom_price_and_update(self, app, variant, user):
+        order = OrderService.create_order(
+            lines=[
+                OrderLineInput(
+                    variant_id=variant.id,
+                    quantity=1,
+                    price_type="custom",
+                    unit_price_cents=1234,
+                )
+            ],
+            user_id=user.id,
+        )
+        assert order.lines[0].price_type == "custom"
+        assert order.lines[0].unit_price_cents == 1234
+
+        order = OrderService.update_line_price(
+            order.id,
+            order.lines[0].id,
+            price_type="retail",
+            user_id=user.id,
+        )
+        assert order.lines[0].price_type == "retail"
+        assert order.lines[0].unit_price_cents == variant.price_cents
+
+    def test_wholesale_requires_catalog_price(self, app, variant, user):
+        from app.services.exceptions import InventoryError
+
+        with pytest.raises(InventoryError):
+            OrderService.create_order(
+                lines=[OrderLineInput(variant_id=variant.id, quantity=1, price_type="wholesale")],
+                user_id=user.id,
+            )
+
 
 class TestAPI:
     def test_health(self, client):

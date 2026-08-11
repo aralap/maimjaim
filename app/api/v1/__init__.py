@@ -19,6 +19,7 @@ def _variant_to_dict(variant):
         "product_name": variant.product.name,
         "attributes": variant.attributes,
         "price_cents": variant.price_cents,
+        "wholesale_price_cents": variant.wholesale_price_cents,
         "available": inv.quantity_available if inv else 0,
     }
 
@@ -47,6 +48,7 @@ def _order_to_dict(order):
                 "sku": line.variant.sku,
                 "quantity": line.quantity,
                 "unit_price_cents": line.unit_price_cents,
+                "price_type": line.price_type,
             }
             for line in order.lines
         ],
@@ -131,6 +133,10 @@ def create_order():
                 sku=line.get("sku", "").upper() if line.get("sku") else None,
                 variant_id=line.get("variant_id"),
                 quantity=int(line.get("quantity", 1)),
+                price_type=line.get("price_type"),
+                unit_price_cents=(
+                    int(line["unit_price_cents"]) if line.get("unit_price_cents") is not None else None
+                ),
             )
             for line in lines_data
         ]

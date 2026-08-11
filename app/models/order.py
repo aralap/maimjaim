@@ -82,11 +82,16 @@ class Order(TimestampMixin, db.Model):
 class OrderLine(db.Model):
     __tablename__ = "order_lines"
 
+    PRICE_RETAIL = "retail"
+    PRICE_WHOLESALE = "wholesale"
+    PRICE_CUSTOM = "custom"
+
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=False)
     variant_id = db.Column(db.Integer, db.ForeignKey("product_variants.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     unit_price_cents = db.Column(db.Integer, nullable=False)
+    price_type = db.Column(db.String(32), nullable=False, default=PRICE_RETAIL)
 
     order = db.relationship("Order", back_populates="lines")
     variant = db.relationship("ProductVariant", back_populates="order_lines")

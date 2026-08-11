@@ -33,6 +33,7 @@ class ProductVariant(TimestampMixin, db.Model):
     sku = db.Column(db.String(64), unique=True, nullable=False, index=True)
     barcode = db.Column(db.String(64), nullable=True)
     price_cents = db.Column(db.Integer, nullable=False, default=0)
+    wholesale_price_cents = db.Column(db.Integer, nullable=True)
     cost_cents = db.Column(db.Integer, nullable=False, default=0)
     attributes = db.Column(db.JSON, nullable=False, default=dict)
 
@@ -44,6 +45,10 @@ class ProductVariant(TimestampMixin, db.Model):
         cascade="all, delete-orphan",
     )
     order_lines = db.relationship("OrderLine", back_populates="variant", lazy="dynamic")
+
+    @property
+    def has_wholesale_price(self) -> bool:
+        return self.wholesale_price_cents is not None
 
     @property
     def display_name(self) -> str:

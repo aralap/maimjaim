@@ -34,28 +34,7 @@
             <button type="button" id="add-line" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar artículo</button>
         </div>
         <div id="cart-lines" class="space-y-3">
-            <div class="cart-line grid grid-cols-12 gap-3 items-end">
-                <div class="col-span-8">
-                    <label class="block text-sm font-medium text-gray-700">Producto</label>
-                    <select name="variant_id" required class="mt-1 block w-full border rounded-md px-3 py-2">
-                        <option value="">Seleccionar variante...</option>
-                        {% for variant in variants %}
-                        <option value="{{ variant.id }}">
-                            {{ variant.sku }} — {{ variant.display_name }}
-                            ({% if variant.inventory_item %}{{ variant.inventory_item.quantity_available }} disp.{% else %}0{% endif %})
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-span-3">
-                    <label class="block text-sm font-medium text-gray-700">Cant.</label>
-                    <input type="number" name="quantity" min="1" value="1" required
-                           class="mt-1 block w-full border rounded-md px-3 py-2">
-                </div>
-                <div class="col-span-1">
-                    <button type="button" class="remove-line hidden text-red-600 text-sm py-2">✕</button>
-                </div>
-            </div>
+            {% include "orders/_cart_line.html" %}
         </div>
     </div>
 
@@ -107,33 +86,64 @@
 </form>
 
 <template id="line-template">
-    <div class="cart-line grid grid-cols-12 gap-3 items-end">
-        <div class="col-span-8">
-            <label class="block text-sm font-medium text-gray-700">Producto</label>
-            <select name="variant_id" class="mt-1 block w-full border rounded-md px-3 py-2">
-                <option value="">Seleccionar variante...</option>
-                {% for variant in variants %}
-                <option value="{{ variant.id }}">
-                    {{ variant.sku }} — {{ variant.display_name }}
-                    ({% if variant.inventory_item %}{{ variant.inventory_item.quantity_available }} disp.{% else %}0{% endif %})
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-span-3">
-            <label class="block text-sm font-medium text-gray-700">Cant.</label>
-            <input type="number" name="quantity" min="1" value="1" class="mt-1 block w-full border rounded-md px-3 py-2">
-        </div>
-        <div class="col-span-1">
-            <button type="button" class="remove-line text-red-600 text-sm py-2">✕</button>
-        </div>
-    </div>
+    {% include "orders/_cart_line.html" %}
 </template>
 
+<script id="variant-price-data" type="application/json">{{ variant_prices|tojson }}</script>
 <script>
 (function() {
     const container = document.getElementById('cart-lines');
     const template = document.getElementById('line-template');
+    const priceData = JSON.parse(document.getElementById('variant-price-data').textContent);
+
+    function fillPriceOptions(select, variantId, currentType) {
+        const data = priceData[variantId] || {};
+        const type = currentType || 'retail';
+        select.innerHTML = '';
+        const lista = document.createElement('option');
+        lista.value = 'retail';
+        lista.textContent = data.price ? ('Lista ($' + data.price + ')') : 'Lista';
+        select.appendChild(lista);
+        if (data.wholesale != null) {
+            const mayorista = document.createElement('option');
+            mayorista.value = 'wholesale';
+            mayorista.textContent = 'Mayorista ($' + data.wholesale + ')';
+            select.appendChild(mayorista);
+        }
+        const otro = document.createElement('option');
+        otro.value = 'custom';
+        otro.textContent = 'Otro';
+        select.appendChild(otro);
+        select.value = (type === 'wholesale' && data.wholesale == null) ? 'retail' : type;
+        if (![...select.options].some(opt => opt.value === select.value)) {
+            select.value = 'retail';
+        }
+    }
+
+    function syncLine(line) {
+        const variantSelect = line.querySelector('select[name="variant_id"]');
+        const priceSelect = line.querySelector('select[name="price_type"]');
+        const customWrap = line.querySelector('.custom-price-wrap');
+        const customInput = line.querySelector('input[name="custom_price"]');
+        fillPriceOptions(priceSelect, variantSelect.value, priceSelect.value);
+        const isCustom = priceSelect.value === 'custom';
+        customWrap.classList.toggle('hidden', !isCustom);
+        customInput.required = isCustom;
+        if (isCustom && !customInput.value) {
+            const data = priceData[variantSelect.value] || {};
+            customInput.value = data.price || '';
+        }
+    }
+
+    function bindLine(line) {
+        line.querySelector('select[name="variant_id"]').addEventListener('change', function() {
+            syncLine(line);
+        });
+        line.querySelector('select[name="price_type"]').addEventListener('change', function() {
+            syncLine(line);
+        });
+        syncLine(line);
+    }
 
     function updateRemoveButtons() {
         const lines = container.querySelectorAll('.cart-line');
@@ -144,7 +154,10 @@
     }
 
     document.getElementById('add-line').addEventListener('click', function() {
-        container.appendChild(template.content.cloneNode(true));
+        const node = template.content.cloneNode(true);
+        const line = node.querySelector('.cart-line');
+        container.appendChild(node);
+        bindLine(line);
         updateRemoveButtons();
     });
 
@@ -155,6 +168,7 @@
         }
     });
 
+    container.querySelectorAll('.cart-line').forEach(bindLine);
     updateRemoveButtons();
 })();
 </script>

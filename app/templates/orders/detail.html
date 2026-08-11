@@ -63,9 +63,60 @@
                     <td class="py-3 font-medium">{{ line.variant.sku }}</td>
                     <td class="py-3 text-gray-500">{{ line.variant.display_name }}</td>
                     <td class="py-3 text-right">{{ line.quantity }}</td>
-                    <td class="py-3 text-right">{{ format_cents(line.unit_price_cents) }}</td>
+                    <td class="py-3 text-right">
+                        {% if order.status in ['draft', 'confirmed'] %}
+                        <button type="button"
+                                class="text-indigo-600 hover:underline"
+                                onclick="document.getElementById('price-form-{{ line.id }}').classList.toggle('hidden')">
+                            {{ format_cents(line.unit_price_cents) }}
+                            {% if line.price_type != 'retail' %}
+                            <span class="block text-xs text-gray-400">{{ labels.PRICE_TYPES.get(line.price_type, line.price_type) }}</span>
+                            {% endif %}
+                        </button>
+                        {% else %}
+                        {{ format_cents(line.unit_price_cents) }}
+                        {% if line.price_type != 'retail' %}
+                        <span class="block text-xs text-gray-400">{{ labels.PRICE_TYPES.get(line.price_type, line.price_type) }}</span>
+                        {% endif %}
+                        {% endif %}
+                    </td>
                     <td class="py-3 text-right font-medium">{{ format_cents(line.line_total_cents) }}</td>
                 </tr>
+                {% if order.status in ['draft', 'confirmed'] %}
+                <tr id="price-form-{{ line.id }}" class="hidden bg-gray-50">
+                    <td colspan="5" class="py-3">
+                        <form method="post"
+                              action="{{ url_for('web_orders.update_line_price', order_id=order.id, line_id=line.id) }}"
+                              class="flex flex-wrap gap-3 items-end justify-end">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500">Tipo</label>
+                                <select name="price_type" class="mt-1 border rounded-md px-3 py-2 text-sm"
+                                        onchange="this.form.querySelector('.custom-price-field').classList.toggle('hidden', this.value !== 'custom')">
+                                    <option value="retail" {% if line.price_type == 'retail' %}selected{% endif %}>
+                                        Lista ({{ format_cents(line.variant.price_cents) }})
+                                    </option>
+                                    {% if line.variant.has_wholesale_price %}
+                                    <option value="wholesale" {% if line.price_type == 'wholesale' %}selected{% endif %}>
+                                        Mayorista ({{ format_cents(line.variant.wholesale_price_cents) }})
+                                    </option>
+                                    {% endif %}
+                                    <option value="custom" {% if line.price_type == 'custom' %}selected{% endif %}>Otro</option>
+                                </select>
+                            </div>
+                            <div class="custom-price-field {% if line.price_type != 'custom' %}hidden{% endif %}">
+                                <label class="block text-xs font-medium text-gray-500">Precio ($)</label>
+                                <input type="number" name="custom_price" step="0.01" min="0"
+                                       value="{{ '%.2f'|format(line.unit_price_cents / 100) }}"
+                                       class="mt-1 w-28 border rounded-md px-3 py-2 text-sm">
+                            </div>
+                            <button type="submit" class="px-3 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700">
+                                Guardar
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
             <tfoot>

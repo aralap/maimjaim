@@ -21,6 +21,7 @@ def _product_details(product: Product, variant: ProductVariant | None = None) ->
                 "variant_id": variant.id,
                 "sku": variant.sku,
                 "price_cents": variant.price_cents,
+                "wholesale_price_cents": variant.wholesale_price_cents,
                 "cost_cents": variant.cost_cents,
                 "attributes": variant.attributes,
             }
@@ -32,6 +33,7 @@ def _product_details(product: Product, variant: ProductVariant | None = None) ->
                 "variant_id": v.id,
                 "sku": v.sku,
                 "price_cents": v.price_cents,
+                "wholesale_price_cents": v.wholesale_price_cents,
                 "cost_cents": v.cost_cents,
             }
         )
@@ -77,6 +79,7 @@ class ProductService:
         *,
         sku: str,
         price_cents: int = 0,
+        wholesale_price_cents: int | None = None,
         cost_cents: int = 0,
         attributes: dict | None = None,
         initial_stock: int = 0,
@@ -111,6 +114,7 @@ class ProductService:
             product=product,
             sku=sku,
             price_cents=price_cents,
+            wholesale_price_cents=wholesale_price_cents,
             cost_cents=cost_cents,
             attributes=attributes or {},
         )
@@ -220,6 +224,7 @@ class ProductService:
         *,
         sku: str,
         price_cents: int = 0,
+        wholesale_price_cents: int | None = None,
         cost_cents: int = 0,
         attributes: dict | None = None,
         initial_stock: int = 0,
@@ -238,6 +243,7 @@ class ProductService:
             product=product,
             sku=sku,
             price_cents=price_cents,
+            wholesale_price_cents=wholesale_price_cents,
             cost_cents=cost_cents,
             attributes=attributes or {},
         )
@@ -275,6 +281,8 @@ class ProductService:
         variant_id: int,
         *,
         price_cents: int | None = None,
+        wholesale_price_cents: int | None = None,
+        update_wholesale: bool = False,
         cost_cents: int | None = None,
         reorder_point: int | None = None,
         user_id: int | None = None,
@@ -286,6 +294,7 @@ class ProductService:
         before = {
             "sku": variant.sku,
             "price_cents": variant.price_cents,
+            "wholesale_price_cents": variant.wholesale_price_cents,
             "cost_cents": variant.cost_cents,
             "reorder_point": variant.inventory_item.reorder_point if variant.inventory_item else None,
         }
@@ -293,6 +302,10 @@ class ProductService:
             if price_cents < 0:
                 raise InventoryError("El precio no puede ser negativo")
             variant.price_cents = price_cents
+        if update_wholesale:
+            if wholesale_price_cents is not None and wholesale_price_cents < 0:
+                raise InventoryError("El precio mayorista no puede ser negativo")
+            variant.wholesale_price_cents = wholesale_price_cents
         if cost_cents is not None:
             if cost_cents < 0:
                 raise InventoryError("El costo no puede ser negativo")
@@ -306,6 +319,7 @@ class ProductService:
         after = {
             "sku": variant.sku,
             "price_cents": variant.price_cents,
+            "wholesale_price_cents": variant.wholesale_price_cents,
             "cost_cents": variant.cost_cents,
             "reorder_point": variant.inventory_item.reorder_point if variant.inventory_item else None,
         }

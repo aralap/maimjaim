@@ -1,6 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
+from app.money import optional_pesos_to_cents, pesos_to_cents
 from app.services import ProductService
 from app.services.exceptions import InventoryError
 from app.web.decorators import admin_required, approved_required
@@ -37,8 +38,9 @@ def new_product():
                 name=request.form["name"],
                 description=request.form.get("description") or None,
                 sku=request.form["sku"].strip().upper(),
-                price_cents=int(float(request.form.get("price", 0)) * 100),
-                cost_cents=int(float(request.form.get("cost", 0)) * 100),
+                price_cents=pesos_to_cents(request.form.get("price", 0)),
+                wholesale_price_cents=optional_pesos_to_cents(request.form.get("wholesale_price")),
+                cost_cents=pesos_to_cents(request.form.get("cost", 0)),
                 initial_stock=int(request.form.get("initial_stock", 0)),
                 reorder_point=int(request.form.get("reorder_point", 0)),
                 category_id=int(request.form["category_id"]) if request.form.get("category_id") else None,
@@ -90,8 +92,12 @@ def edit_product(product_id):
                     continue
                 ProductService.update_variant(
                     variant.id,
-                    price_cents=int(float(request.form.get(price_key, 0) or 0) * 100),
-                    cost_cents=int(float(request.form.get(f"variant_cost_{variant.id}", 0) or 0) * 100),
+                    price_cents=pesos_to_cents(request.form.get(price_key, 0) or 0),
+                    wholesale_price_cents=optional_pesos_to_cents(
+                        request.form.get(f"variant_wholesale_{variant.id}")
+                    ),
+                    update_wholesale=True,
+                    cost_cents=pesos_to_cents(request.form.get(f"variant_cost_{variant.id}", 0) or 0),
                     reorder_point=int(request.form.get(f"variant_reorder_{variant.id}", 0) or 0),
                     user_id=current_user.id,
                 )
@@ -148,8 +154,9 @@ def new_variant(product_id):
             ProductService.add_variant(
                 product_id,
                 sku=request.form["sku"].strip().upper(),
-                price_cents=int(float(request.form.get("price", 0)) * 100),
-                cost_cents=int(float(request.form.get("cost", 0)) * 100),
+                price_cents=pesos_to_cents(request.form.get("price", 0)),
+                wholesale_price_cents=optional_pesos_to_cents(request.form.get("wholesale_price")),
+                cost_cents=pesos_to_cents(request.form.get("cost", 0)),
                 attributes=attrs,
                 initial_stock=int(request.form.get("initial_stock", 0)),
                 reorder_point=int(request.form.get("reorder_point", 0)),
@@ -177,8 +184,10 @@ def update_variant_pricing(product_id, variant_id):
     try:
         ProductService.update_variant(
             variant_id,
-            price_cents=int(float(request.form.get("price", 0) or 0) * 100),
-            cost_cents=int(float(request.form.get("cost", 0) or 0) * 100),
+            price_cents=pesos_to_cents(request.form.get("price", 0) or 0),
+            wholesale_price_cents=optional_pesos_to_cents(request.form.get("wholesale_price")),
+            update_wholesale=True,
+            cost_cents=pesos_to_cents(request.form.get("cost", 0) or 0),
             reorder_point=int(request.form.get("reorder_point", 0) or 0),
             user_id=current_user.id,
         )
