@@ -168,6 +168,24 @@ def add_line(order_id):
     return redirect(url_for("web_orders.detail", order_id=order_id))
 
 
+@bp.route("/<int:order_id>/lines/<int:line_id>/quantity", methods=["POST"])
+@approved_required
+def update_line_quantity(order_id, line_id):
+    try:
+        quantity = int(request.form.get("quantity", 0) or 0)
+        if quantity <= 0:
+            OrderService.remove_line(order_id, line_id, user_id=current_user.id)
+            flash("Artículo quitado.", "success")
+        else:
+            OrderService.update_line_quantity(
+                order_id, line_id, quantity, user_id=current_user.id
+            )
+            flash("Cantidad actualizada.", "success")
+    except (InventoryError, InvalidOrderStateError, ValueError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("web_orders.detail", order_id=order_id))
+
+
 @bp.route("/<int:order_id>/lines/<int:line_id>/remove", methods=["POST"])
 @approved_required
 def remove_line(order_id, line_id):

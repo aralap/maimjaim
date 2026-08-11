@@ -65,6 +65,7 @@ AUDIT_ACTIONS = {
     "order.line.price.update": "Precio de línea actualizado",
     "order.line.add": "Artículo agregado",
     "order.line.remove": "Artículo quitado",
+    "order.line.quantity.update": "Cantidad actualizada",
     "client.create": "Cliente creado",
     "client.update": "Cliente actualizado",
     "auth.login": "Inicio de sesión",

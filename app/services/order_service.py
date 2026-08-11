@@ -320,6 +320,32 @@ class OrderService:
         return order
 
     @staticmethod
+    def update_line_quantity(
+        order_id: int,
+        line_id: int,
+        quantity: int,
+        user_id: int | None = None,
+    ) -> Order:
+        if quantity <= 0:
+            return OrderService.remove_line(order_id, line_id, user_id=user_id)
+        order = OrderService._get_draft_order(order_id)
+        line = next((item for item in order.lines if item.id == line_id), None)
+        if not line:
+            raise InventoryError("Línea de pedido no encontrada")
+        before = line.quantity
+        line.quantity = quantity
+        order.sync_payment_status()
+        OrderService._audit_order(
+            order,
+            "order.line.quantity.update",
+            f"Cantidad actualizada en {order.order_number} ({line.variant.sku})",
+            user_id=user_id,
+            extra={"line_id": line.id, "quantity_before": before, "quantity_after": quantity},
+        )
+        db.session.commit()
+        return order
+
+    @staticmethod
     def remove_line(order_id: int, line_id: int, user_id: int | None = None) -> Order:
         order = OrderService._get_draft_order(order_id)
         if len(order.lines) <= 1:

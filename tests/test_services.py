@@ -161,7 +161,11 @@ class TestOrderService:
         assert merged.quantity == 4
 
         extra_id = next(line.id for line in order.lines if line.variant_id == other.id)
-        order = OrderService.remove_line(order.id, extra_id, user_id=user.id)
+        order = OrderService.update_line_quantity(order.id, extra_id, 5, user_id=user.id)
+        extra = next(line for line in order.lines if line.id == extra_id)
+        assert extra.quantity == 5
+
+        order = OrderService.update_line_quantity(order.id, extra_id, 0, user_id=user.id)
         assert len(order.lines) == 1
 
         with pytest.raises(InventoryError):

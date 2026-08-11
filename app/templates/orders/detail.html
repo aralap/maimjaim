@@ -65,7 +65,21 @@
                 <tr>
                     <td class="py-3 font-medium">{{ line.variant.sku }}</td>
                     <td class="py-3 text-gray-500">{{ line.variant.display_name }}</td>
-                    <td class="py-3 text-right">{{ line.quantity }}</td>
+                    <td class="py-3 text-right">
+                        {% if order.status == 'draft' %}
+                        <form method="post"
+                              action="{{ url_for('web_orders.update_line_quantity', order_id=order.id, line_id=line.id) }}"
+                              class="inline-flex justify-end">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="number" name="quantity" min="0" value="{{ line.quantity }}"
+                                   title="0 quita el artículo"
+                                   class="w-16 text-right border rounded-md px-2 py-1 text-sm"
+                                   onchange="this.form.submit()">
+                        </form>
+                        {% else %}
+                        {{ line.quantity }}
+                        {% endif %}
+                    </td>
                     <td class="py-3 text-right">
                         {% if order.status in ['draft', 'confirmed'] %}
                         <button type="button"
@@ -86,14 +100,16 @@
                     <td class="py-3 text-right font-medium">{{ format_cents(line.line_total_cents) }}</td>
                     {% if order.status == 'draft' %}
                     <td class="py-3 text-right">
-                        {% if order.lines|length > 1 %}
                         <form method="post"
-                              action="{{ url_for('web_orders.remove_line', order_id=order.id, line_id=line.id) }}"
-                              onsubmit="return confirm('¿Quitar este artículo?');">
+                              action="{{ url_for('web_orders.remove_line', order_id=order.id, line_id=line.id) }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="text-sm text-red-600 hover:text-red-800">Quitar</button>
+                            <button type="submit"
+                                    title="Quitar artículo"
+                                    aria-label="Quitar artículo"
+                                    class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-red-200 text-red-600 hover:bg-red-50 text-lg leading-none">
+                                −
+                            </button>
                         </form>
-                        {% endif %}
                     </td>
                     {% endif %}
                 </tr>
