@@ -15,6 +15,7 @@
     <a href="{{ url_for('web_inventory.list_inventory') }}" class="{{ link_class }}">Inventario</a>
     <a href="{{ url_for('web_inventory.movements') }}" class="{{ link_class }}">Movimientos</a>
     <a href="{{ url_for('web_orders.list_orders') }}" class="{{ link_class }}">Pedidos</a>
+    <a href="{{ url_for('web_orders.week_sheet') }}" class="{{ link_class }}">Planilla</a>
     <a href="{{ url_for('web_orders.procurement_plan') }}" class="{{ link_class }}">A comprar</a>
     <a href="{{ url_for('web_clients.list_clients') }}" class="{{ link_class }}">Clientes</a>
     {% if current_user.is_admin() %}
@@ -73,7 +74,7 @@
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <main class="{% block main_class %}max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8{% endblock %}">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="mb-6 space-y-2">

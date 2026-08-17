@@ -6,9 +6,10 @@ from flask_login import current_user
 from app.labels import PAYMENT_METHOD_CHOICES
 from app.money import optional_pesos_to_cents
 from app.models import OrderLine
-from app.services import ClientService, OrderService, ProductService
+from app.services import ClientService, OrderService, ProductService, WeekSheetService
 from app.services.exceptions import InvalidOrderStateError, InventoryError
 from app.services.order_service import OrderLineInput, PaymentInput
+from app.week import parse_week_start
 from app.web.decorators import approved_required
 
 bp = Blueprint("web_orders", __name__, url_prefix="/orders")
@@ -100,6 +101,111 @@ def procurement_plan():
     days = request.args.get("days", 7, type=int)
     plan = OrderService.get_procurement_plan(days=days)
     return render_template("orders/procurement.html", plan=plan)
+
+
+def _week_redirect(week_start):
+    return redirect(url_for("web_orders.week_sheet", week=week_start.isoformat()))
+
+
+@bp.route("/planilla")
+@approved_required
+def week_sheet():
+    monday = parse_week_start(request.args.get("week"))
+    board = WeekSheetService.board(monday)
+    return render_template("orders/week_sheet.html", **board)
+
+
+@bp.route("/planilla/clients", methods=["POST"])
+@approved_required
+def week_sheet_add_client():
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        client_id = int(request.form.get("client_id") or 0)
+        if not client_id:
+            raise InventoryError("Elegí un cliente")
+        WeekSheetService.add_client_row(client_id, monday, user_id=current_user.id)
+        flash("Cliente agregado a la planilla.", "success")
+    except (InventoryError, ValueError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
+@bp.route("/planilla/<int:order_id>/remove", methods=["POST"])
+@approved_required
+def week_sheet_remove_client(order_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        WeekSheetService.drop_client_row(order_id, user_id=current_user.id)
+        flash("Fila quitada.", "success")
+    except InventoryError as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
+@bp.route("/planilla/columns", methods=["POST"])
+@approved_required
+def week_sheet_add_column():
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        variant_id = int(request.form.get("variant_id") or 0)
+        if not variant_id:
+            raise InventoryError("Elegí un producto")
+        WeekSheetService.add_column(variant_id)
+        flash("Columna agregada.", "success")
+    except (InventoryError, ValueError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
+@bp.route("/planilla/columns/<int:column_id>/remove", methods=["POST"])
+@approved_required
+def week_sheet_remove_column(column_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        WeekSheetService.remove_column(column_id)
+        flash("Columna quitada.", "success")
+    except InventoryError as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
+@bp.route("/planilla/<int:order_id>/qty", methods=["POST"])
+@approved_required
+def week_sheet_set_qty(order_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        variant_id = int(request.form["variant_id"])
+        delta = int(request.form.get("delta") or 0)
+        order = OrderService.get_order(order_id)
+        if not order:
+            raise InventoryError("Pedido no encontrado")
+        current = next((line.quantity for line in order.lines if line.variant_id == variant_id), 0)
+        raw_qty = request.form.get("quantity")
+        if raw_qty not in (None, ""):
+            quantity = int(raw_qty)
+        else:
+            quantity = max(0, current + delta)
+        OrderService.set_line_quantity_by_variant(
+            order_id, variant_id, quantity, user_id=current_user.id
+        )
+    except (InventoryError, InvalidOrderStateError, ValueError, KeyError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
+@bp.route("/planilla/<int:order_id>/delivery", methods=["POST"])
+@approved_required
+def week_sheet_set_delivery(order_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        OrderService.update_delivery_date(
+            order_id,
+            _parse_delivery_date(request.form),
+            user_id=current_user.id,
+        )
+    except (InventoryError, ValueError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
 
 
 @bp.route("/new", methods=["GET", "POST"])

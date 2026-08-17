@@ -151,8 +151,9 @@ class OrderService:
         delivery_date: date | None = None,
         user_id: int | None = None,
         auto_confirm: bool = False,
+        allow_empty: bool = False,
     ) -> Order:
-        if not lines:
+        if not lines and not allow_empty:
             raise InventoryError("El pedido debe tener al menos un artículo")
 
         if external_id and api_client_id:
@@ -346,9 +347,15 @@ class OrderService:
         return order
 
     @staticmethod
-    def remove_line(order_id: int, line_id: int, user_id: int | None = None) -> Order:
+    def remove_line(
+        order_id: int,
+        line_id: int,
+        user_id: int | None = None,
+        *,
+        allow_empty: bool = False,
+    ) -> Order:
         order = OrderService._get_draft_order(order_id)
-        if len(order.lines) <= 1:
+        if not allow_empty and len(order.lines) <= 1:
             raise InventoryError("El pedido debe tener al menos un artículo")
         line = next((item for item in order.lines if item.id == line_id), None)
         if not line:
@@ -365,6 +372,27 @@ class OrderService:
         )
         db.session.commit()
         return order
+
+    @staticmethod
+    def set_line_quantity_by_variant(
+        order_id: int,
+        variant_id: int,
+        quantity: int,
+        user_id: int | None = None,
+    ) -> Order:
+        order = OrderService._get_draft_order(order_id)
+        line = next((item for item in order.lines if item.variant_id == variant_id), None)
+        if quantity <= 0:
+            if not line:
+                return order
+            return OrderService.remove_line(order_id, line.id, user_id=user_id, allow_empty=True)
+        if line:
+            return OrderService.update_line_quantity(order_id, line.id, quantity, user_id=user_id)
+        return OrderService.add_line(
+            order_id,
+            OrderLineInput(variant_id=variant_id, quantity=quantity),
+            user_id=user_id,
+        )
 
     @staticmethod
     def update_delivery_date(order_id: int, delivery_date: date | None, user_id: int | None = None) -> Order:
@@ -434,12 +462,27 @@ class OrderService:
         return query.all()
 
     @staticmethod
+    def list_week_orders(monday: date, sunday: date) -> list[Order]:
+        return (
+            Order.query.filter(
+                Order.delivery_date.isnot(None),
+                Order.delivery_date >= monday,
+                Order.delivery_date <= sunday,
+                Order.status.in_([Order.STATUS_DRAFT, Order.STATUS_CONFIRMED, Order.STATUS_FULFILLED]),
+            )
+            .order_by(Order.created_at.asc())
+            .all()
+        )
+
+    @staticmethod
     def confirm_order(order_id: int, user_id: int | None = None) -> Order:
         order = db.session.get(Order, order_id)
         if not order:
             raise InventoryError(f"Pedido {order_id} no encontrado")
         if order.status != Order.STATUS_DRAFT:
             raise InvalidOrderStateError(order_id, order.status, "confirm")
+        if not order.lines:
+            raise InventoryError("El pedido debe tener al menos un artículo")
 
         try:
             for line in order.lines:

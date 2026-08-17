@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% from "macros.html" import format_cents, status_badge %}
+{% block title %}Planilla semanal - {{ app_name }}{% endblock %}
+{% block main_class %}max-w-none mx-auto py-6 px-3 sm:px-6{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Semana {{ week_number }}</h1>
+        <p class="text-sm text-gray-600 mt-1">{{ monday.strftime('%d/%m/%y') }} — {{ sunday.strftime('%d/%m/%y') }} · {{ year }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <a href="{{ url_for('web_orders.week_sheet', week=prev_monday.isoformat()) }}"
+           class="px-3 py-2 border rounded-md text-sm hover:bg-gray-50">← Semana anterior</a>
+        <a href="{{ url_for('web_orders.week_sheet') }}"
+           class="px-3 py-2 border rounded-md text-sm hover:bg-gray-50">Hoy</a>
+        <a href="{{ url_for('web_orders.week_sheet', week=next_monday.isoformat()) }}"
+           class="px-3 py-2 border rounded-md text-sm hover:bg-gray-50">Semana siguiente →</a>
+    </div>
+</div>
+
+<div class="mb-4 flex flex-wrap gap-4 items-end">
+    {% if unused_clients %}
+    <form method="post" action="{{ url_for('web_orders.week_sheet_add_client') }}" class="flex items-end gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+        <div>
+            <label class="block text-xs font-medium text-gray-500">Cliente</label>
+            <select name="client_id" class="mt-1 border rounded-md px-3 py-2 text-sm min-w-[12rem]">
+                <option value="">Seleccionar…</option>
+                {% for client in unused_clients %}
+                <option value="{{ client.id }}">{{ client.display_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">+ Cliente</button>
+    </form>
+    {% endif %}
+    {% if available_variants %}
+    <form method="post" action="{{ url_for('web_orders.week_sheet_add_column') }}" class="flex items-end gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+        <div>
+            <label class="block text-xs font-medium text-gray-500">Producto</label>
+            <select name="variant_id" class="mt-1 border rounded-md px-3 py-2 text-sm min-w-[12rem]">
+                <option value="">Seleccionar…</option>
+                {% for variant in available_variants %}
+                <option value="{{ variant.id }}">{{ variant.sku }} — {{ variant.display_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="px-3 py-2 bg-gray-800 text-white rounded-md text-sm hover:bg-gray-900">+ Columna</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="bg-white shadow rounded-lg overflow-x-auto border border-gray-300">
+    <table class="min-w-full border-collapse text-sm">
+        <thead>
+            <tr class="bg-gray-100">
+                <th class="sticky left-0 z-10 bg-gray-100 px-3 py-2 text-left font-medium text-gray-700 border border-gray-300 min-w-[10rem]">Cliente</th>
+                {% for column in columns %}
+                <th class="px-1 py-2 text-center font-medium text-gray-700 border border-gray-300 min-w-[4.5rem]" title="{{ column.variant.display_name }}">
+                    <div>{{ column_codes[column.variant_id] }}</div>
+                    <form method="post" action="{{ url_for('web_orders.week_sheet_remove_column', column_id=column.id) }}" class="mt-1">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                        <button type="submit" class="text-[10px] text-gray-400 hover:text-red-600">quitar</button>
+                    </form>
+                </th>
+                {% endfor %}
+                <th class="px-3 py-2 text-left font-medium text-gray-700 border border-gray-300 min-w-[8rem]">Entrega</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-700 border border-gray-300">Cant.</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-700 border border-gray-300">Total</th>
+                <th class="px-2 py-2 border border-gray-300 bg-gray-100"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr class="{% if row.order.status == 'draft' %}bg-amber-50{% elif row.order.status == 'fulfilled' %}bg-gray-50{% else %}bg-white{% endif %}">
+                <td class="sticky left-0 z-10 px-3 py-2 border border-gray-300 bg-inherit">
+                    <a href="{{ url_for('web_orders.detail', order_id=row.order.id) }}" class="font-medium text-indigo-700 hover:underline">
+                        {{ row.client.name if row.client else (row.order.customer_name or 'Mostrador') }}
+                    </a>
+                    <div class="text-[10px] text-gray-500">{{ labels.ORDER_STATUS.get(row.order.status, row.order.status) }}</div>
+                </td>
+                {% for column in columns %}
+                {% set qty = row.quantities.get(column.variant_id, 0) %}
+                <td class="px-1 py-1 border border-gray-300 text-center">
+                    {% if row.editable %}
+                    <div class="inline-flex items-center">
+                        <form method="post" action="{{ url_for('web_orders.week_sheet_set_qty', order_id=row.order.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                            <input type="hidden" name="variant_id" value="{{ column.variant_id }}">
+                            <input type="hidden" name="delta" value="-1">
+                            <button type="submit" class="w-6 h-6 rounded text-gray-500 hover:bg-gray-200">−</button>
+                        </form>
+                        <span class="w-6 text-center font-medium {% if qty %}text-gray-900{% else %}text-gray-300{% endif %}">{{ qty or '' }}</span>
+                        <form method="post" action="{{ url_for('web_orders.week_sheet_set_qty', order_id=row.order.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                            <input type="hidden" name="variant_id" value="{{ column.variant_id }}">
+                            <input type="hidden" name="delta" value="1">
+                            <button type="submit" class="w-6 h-6 rounded text-gray-500 hover:bg-gray-200">+</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <span class="{% if qty %}font-medium{% else %}text-gray-300{% endif %}">{{ qty or '' }}</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+                <td class="px-2 py-2 border border-gray-300">
+                    {% if row.editable %}
+                    <form method="post" action="{{ url_for('web_orders.week_sheet_set_delivery', order_id=row.order.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                        <select name="delivery_date" class="border rounded px-2 py-1 text-xs w-full bg-white" onchange="this.form.submit()">
+                            {% for day, label in weekdays %}
+                            <option value="{{ day.isoformat() }}" {% if row.order.delivery_date == day %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% else %}
+                    {% for day, label in weekdays %}
+                    {% if row.order.delivery_date == day %}{{ label }}{% endif %}
+                    {% endfor %}
+                    {% endif %}
+                </td>
+                <td class="px-3 py-2 border border-gray-300 text-right font-medium">{{ row.qty_total or '' }}</td>
+                <td class="px-3 py-2 border border-gray-300 text-right">{{ format_cents(row.order.total_cents) }}</td>
+                <td class="px-2 py-2 border border-gray-300 text-right">
+                    {% if row.editable %}
+                    <form method="post" action="{{ url_for('web_orders.week_sheet_remove_client', order_id=row.order.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                        <button type="submit" class="text-xs text-red-500 hover:text-red-700">Quitar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="{{ 5 + columns|length }}" class="px-3 py-8 text-center text-gray-500">
+                    La planilla de esta semana está vacía. Agregá un cliente con +.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="mt-3 text-xs text-gray-500">Las filas amarillas son pedidos en borrador. Cada fila es un pedido de esta semana; el total usa el precio de lista (o el que ya esté en el pedido).</p>
+{% endblock %}

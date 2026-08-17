@@ -5,6 +5,7 @@ from app.models.client import Client
 from app.models.inventory import InventoryItem, InventoryMovement
 from app.models.order import Order, OrderLine
 from app.models.product import Product, ProductVariant
+from app.models.week_sheet import WeekSheetColumn
 from app.models.user import User
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "Order",
     "OrderLine",
     "ApiClient",
+    "WeekSheetColumn",
 ]

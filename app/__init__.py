@@ -5,7 +5,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from app import labels
 from app.config import get_settings, is_development, resolve_database_url
 from app.extensions import csrf, db, login_manager, migrate, oauth
-from app.models import User
+from app.models import User  # noqa: F401  — register models via app.models
+from app import models as _models  # noqa: F401
 from app.oauth_setup import oauth_app_host, oauth_app_origin
 
 
