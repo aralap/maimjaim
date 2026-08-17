@@ -17,6 +17,16 @@
     .col-sheet.col-collapsed .col-wide { display: none; }
     .col-sheet.col-collapsed .col-thin { display: block; }
     .col-sheet.col-collapsed .qty-step { display: none; }
+    @media print {
+        @page { size: landscape; margin: 8mm; }
+        nav, .print-hide { display: none !important; }
+        body { background: white !important; }
+        main { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+        .qty-step, [data-col="meta-actions"], tr[id^="price-editor-"] { display: none !important; }
+        .col-sheet { position: static !important; }
+        .print-sheet { box-shadow: none !important; overflow: visible !important; border-radius: 0 !important; }
+        table { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
 </style>
 <div class="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
     <div>
@@ -31,10 +41,14 @@
                 <span class="inline-block w-3.5 h-3.5 rounded-sm border border-green-300 bg-green-100"></span>
                 Verde = VEG
             </span>
-            <span>Círculo = revisada · naranja = entregado (el pago se marca aparte) · clic en una cabecera para achicar la columna</span>
+            <span class="print-hide">Círculo = revisada · naranja = entregado (el pago se marca aparte) · clic en una cabecera para achicar la columna</span>
         </div>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="print-hide flex flex-wrap items-center gap-2">
+        <button type="button" onclick="window.print()"
+                class="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">
+            Imprimir
+        </button>
         <a href="{{ url_for('web_orders.week_sheet', week=prev_monday.isoformat()) }}"
            class="px-3 py-2 border rounded-md text-sm hover:bg-gray-50">← Semana anterior</a>
         <a href="{{ url_for('web_orders.week_sheet') }}"
@@ -44,7 +58,7 @@
     </div>
 </div>
 
-<div class="mb-4 flex flex-wrap gap-4 items-end">
+<div class="print-hide mb-4 flex flex-wrap gap-4 items-end">
     {% if unused_clients %}
     <form method="post" action="{{ url_for('web_orders.week_sheet_add_client') }}" class="flex items-end gap-2">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -79,7 +93,7 @@
     {% endif %}
 </div>
 
-<div class="bg-white shadow rounded-lg overflow-x-auto border border-gray-300">
+<div class="print-sheet bg-white shadow rounded-lg overflow-x-auto border border-gray-300">
     <table class="min-w-full border-collapse text-sm">
         <thead>
             <tr class="bg-gray-100">
@@ -96,7 +110,7 @@
                     class="col-sheet collapsible-col px-1 py-2 text-center font-medium text-gray-800 border border-gray-300 cursor-pointer {% if kind == 'veg' %}bg-green-100{% elif kind == 'proc' %}bg-yellow-100{% else %}bg-gray-100{% endif %}">
                     <div class="col-wide leading-tight text-xs break-words max-w-[5.5rem] mx-auto">{{ column_labels.get(column.variant_id, full_name) }}</div>
                     <div class="col-thin text-[10px] font-semibold">{{ column_codes.get(column.variant_id, '') }}</div>
-                    <form method="post" action="{{ url_for('web_orders.week_sheet_remove_column', column_id=column.id) }}" class="col-wide mt-1" onclick="event.stopPropagation()">
+                    <form method="post" action="{{ url_for('web_orders.week_sheet_remove_column', column_id=column.id) }}" class="print-hide col-wide mt-1" onclick="event.stopPropagation()">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="week" value="{{ monday.isoformat() }}">
                         <button type="submit" class="text-[10px] text-gray-400 hover:text-red-600">quitar</button>
