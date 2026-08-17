@@ -126,14 +126,20 @@ class WeekSheetService:
         veg_qty = next((line.quantity for line in order.lines if line.variant_id == pair.id), 0)
         if proc_qty:
             OrderService.set_line_quantity_by_variant(order_id, variant.id, 0, user_id=user_id)
-            return OrderService.set_line_quantity_by_variant(
+            order = OrderService.set_line_quantity_by_variant(
                 order_id, pair.id, proc_qty + veg_qty, user_id=user_id
             )
+            OrderService.reprice_order_lines(order)
+            db.session.commit()
+            return order
         if veg_qty:
             OrderService.set_line_quantity_by_variant(order_id, pair.id, 0, user_id=user_id)
-            return OrderService.set_line_quantity_by_variant(
+            order = OrderService.set_line_quantity_by_variant(
                 order_id, variant.id, veg_qty, user_id=user_id
             )
+            OrderService.reprice_order_lines(order)
+            db.session.commit()
+            return order
         raise InventoryError("Agregá una cantidad primero")
 
     @staticmethod

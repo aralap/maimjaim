@@ -88,6 +88,35 @@ def test_week_sheet_circle_proc_qty_switches_to_veg(app, user):
     assert cell["active_variant_id"] == veg_id
     order = WeekSheetService.toggle_produce_kind(order.id, proc_id, user_id=user.id)
     assert [line.variant.sku for line in order.lines] == ["PROC-001"]
+    assert order.lines[0].unit_price_cents == 500
+
+
+def test_week_sheet_proc_uses_paired_veg_prices(app, user):
+    proc = ProductService.create_product(
+        name="Lechuga francesa Revisada",
+        sku="PROC-001",
+        price_cents=0,
+    )
+    veg = ProductService.create_product(
+        name="Lechuga francesa",
+        sku="VEG-001",
+        price_cents=400,
+    )
+    ProductService.update_variant(veg.variants[0].id, wholesale_price_cents=300, update_wholesale=True)
+    monday = monday_of(date(2026, 8, 17))
+    client = ClientService.create_client(name="M Cosava", phone="+5491100000004")
+    order = WeekSheetService.add_client_row(client.id, monday, user_id=user.id)
+    proc_id = proc.variants[0].id
+    OrderService.set_line_quantity_by_variant(order.id, proc_id, 2, user_id=user.id)
+    order = OrderService.get_order(order.id)
+    assert order.total_cents == 800
+    order = OrderService.set_order_price_type(order.id, "wholesale", user_id=user.id)
+    assert order.lines[0].unit_price_cents == 300
+    assert order.total_cents == 600
+    order = WeekSheetService.toggle_produce_kind(order.id, proc_id, user_id=user.id)
+    assert order.lines[0].variant.sku == "VEG-001"
+    assert order.lines[0].unit_price_cents == 300
+    assert order.total_cents == 600
 
 
 def test_week_sheet_mayorista_uses_wholesale_price(app, variant, user):

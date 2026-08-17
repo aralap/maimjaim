@@ -10,6 +10,7 @@ from app.services.client_service import ClientService
 from app.services.exceptions import InvalidOrderStateError, InventoryError
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
+from app.week import paired_sku
 
 
 @dataclass
@@ -96,11 +97,19 @@ class OrderService:
     ) -> tuple[str, int]:
         chosen = (price_type or OrderLine.PRICE_RETAIL).strip().lower()
         if chosen == OrderLine.PRICE_RETAIL:
+            if unit_price_cents is not None:
+                if unit_price_cents < 0:
+                    raise InventoryError("El precio no puede ser negativo")
+                return OrderLine.PRICE_RETAIL, unit_price_cents
             return OrderLine.PRICE_RETAIL, variant.price_cents
         if chosen == OrderLine.PRICE_WHOLESALE:
-            if variant.wholesale_price_cents is None:
-                raise InventoryError(f"{variant.sku} no tiene precio mayorista")
-            return OrderLine.PRICE_WHOLESALE, variant.wholesale_price_cents
+            if variant.wholesale_price_cents is not None:
+                return OrderLine.PRICE_WHOLESALE, variant.wholesale_price_cents
+            if unit_price_cents is not None:
+                if unit_price_cents < 0:
+                    raise InventoryError("El precio no puede ser negativo")
+                return OrderLine.PRICE_WHOLESALE, unit_price_cents
+            raise InventoryError(f"{variant.sku} no tiene precio mayorista")
         if chosen in {OrderLine.PRICE_CUSTOM, "otro"}:
             if unit_price_cents is None:
                 raise InventoryError("Indicá el precio personalizado")
@@ -381,11 +390,42 @@ class OrderService:
         return order
 
     @staticmethod
+    def _paired_catalog_variant(variant: ProductVariant) -> ProductVariant | None:
+        sku = paired_sku(variant.sku)
+        if not sku:
+            return None
+        return ProductVariant.query.filter(ProductVariant.sku.ilike(sku)).first()
+
+    @staticmethod
     def _price_for_order_variant(order: Order, variant: ProductVariant) -> tuple[str, int]:
         wanted = order.price_type or Order.PRICE_RETAIL
-        if wanted == Order.PRICE_WHOLESALE and variant.has_wholesale_price:
-            return OrderService.resolve_line_price(variant, OrderLine.PRICE_WHOLESALE)
+        pair = OrderService._paired_catalog_variant(variant)
+        candidates = [variant]
+        if pair:
+            candidates.append(pair)
+        if wanted == Order.PRICE_WHOLESALE:
+            for item in candidates:
+                if item.has_wholesale_price:
+                    return OrderLine.PRICE_WHOLESALE, item.wholesale_price_cents
+        for item in candidates:
+            if item.price_cents:
+                price_type = (
+                    OrderLine.PRICE_WHOLESALE
+                    if wanted == Order.PRICE_WHOLESALE
+                    else OrderLine.PRICE_RETAIL
+                )
+                return price_type, item.price_cents
         return OrderService.resolve_line_price(variant, OrderLine.PRICE_RETAIL)
+
+    @staticmethod
+    def reprice_order_lines(order: Order) -> None:
+        for line in order.lines:
+            if line.price_type == OrderLine.PRICE_CUSTOM:
+                continue
+            line.price_type, line.unit_price_cents = OrderService._price_for_order_variant(
+                order, line.variant
+            )
+        order.sync_payment_status()
 
     @staticmethod
     def set_order_price_type(order_id: int, price_type: str, user_id: int | None = None) -> Order:
@@ -397,13 +437,7 @@ class OrderService:
         order.price_type = chosen
         if order.client:
             order.client.price_type = chosen
-        for line in order.lines:
-            if line.price_type == OrderLine.PRICE_CUSTOM:
-                continue
-            line.price_type, line.unit_price_cents = OrderService._price_for_order_variant(
-                order, line.variant
-            )
-        order.sync_payment_status()
+        OrderService.reprice_order_lines(order)
         OrderService._audit_order(
             order,
             "order.price_type.update",
@@ -432,10 +466,15 @@ class OrderService:
         variant = ProductService.get_variant(variant_id)
         if not variant:
             raise InventoryError("Producto no encontrado")
-        price_type, _unit_price = OrderService._price_for_order_variant(order, variant)
+        price_type, unit_price_cents = OrderService._price_for_order_variant(order, variant)
         return OrderService.add_line(
             order_id,
-            OrderLineInput(variant_id=variant_id, quantity=quantity, price_type=price_type),
+            OrderLineInput(
+                variant_id=variant_id,
+                quantity=quantity,
+                price_type=price_type,
+                unit_price_cents=unit_price_cents,
+            ),
             user_id=user_id,
         )
 
