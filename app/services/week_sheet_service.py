@@ -174,6 +174,13 @@ class WeekSheetService:
                     "qty_total": sum(qty_by_variant.values()),
                 }
             )
+        column_kinds = {
+            column.variant_id: variant_column_kind(column.variant.sku)
+            for column in columns
+        }
+        proc_by_column, veg_by_column, proc_cents, veg_cents = WeekSheetService._kind_totals(
+            orders, columns, pair_by_column, column_kinds
+        )
         unused_clients = [
             client
             for client in ClientService.list_clients(active_only=True)
@@ -196,14 +203,50 @@ class WeekSheetService:
                 column.variant_id: sheet_column_label(column.variant.display_name)
                 for column in columns
             },
-            "column_kinds": {
-                column.variant_id: variant_column_kind(column.variant.sku)
-                for column in columns
-            },
+            "column_kinds": column_kinds,
             "rows": rows,
+            "totals": {
+                "proc": {
+                    "by_column": proc_by_column,
+                    "qty": sum(proc_by_column.values()),
+                    "cents": proc_cents,
+                },
+                "veg": {
+                    "by_column": veg_by_column,
+                    "qty": sum(veg_by_column.values()),
+                    "cents": veg_cents,
+                },
+            },
             "unused_clients": unused_clients,
             "available_variants": WeekSheetService.available_variants(),
         }
+
+    @staticmethod
+    def _kind_totals(orders, columns, pair_by_column, column_kinds):
+        proc_by_column = {column.variant_id: 0 for column in columns}
+        veg_by_column = {column.variant_id: 0 for column in columns}
+        proc_cents = 0
+        veg_cents = 0
+        for order in orders:
+            qty_by_variant = {line.variant_id: line.quantity for line in order.lines}
+            for column in columns:
+                pair = pair_by_column.get(column.variant_id)
+                col_qty = qty_by_variant.get(column.variant_id, 0)
+                pair_qty = qty_by_variant.get(pair.id, 0) if pair else 0
+                kind = column_kinds.get(column.variant_id, "other")
+                if kind == "proc":
+                    proc_by_column[column.variant_id] += col_qty
+                    veg_by_column[column.variant_id] += pair_qty
+                elif kind == "veg":
+                    veg_by_column[column.variant_id] += col_qty
+                    proc_by_column[column.variant_id] += pair_qty
+            for line in order.lines:
+                kind = variant_column_kind(line.variant.sku)
+                if kind == "proc":
+                    proc_cents += line.line_total_cents
+                elif kind == "veg":
+                    veg_cents += line.line_total_cents
+        return proc_by_column, veg_by_column, proc_cents, veg_cents
 
     @staticmethod
     def add_client_row(client_id: int, week_start: date, user_id: int | None = None) -> Order:

@@ -86,9 +86,18 @@ def test_week_sheet_circle_proc_qty_switches_to_veg(app, user):
     assert cell["qty"] == 3
     assert cell["as_veg"] is True
     assert cell["active_variant_id"] == veg_id
+    assert board["totals"]["proc"]["by_column"][proc_id] == 0
+    assert board["totals"]["veg"]["by_column"][proc_id] == 3
+    assert board["totals"]["veg"]["qty"] == 3
+    assert board["totals"]["proc"]["qty"] == 0
     order = WeekSheetService.toggle_produce_kind(order.id, proc_id, user_id=user.id)
     assert [line.variant.sku for line in order.lines] == ["PROC-001"]
     assert order.lines[0].unit_price_cents == 500
+    board = WeekSheetService.board(monday)
+    assert board["totals"]["proc"]["by_column"][proc_id] == 3
+    assert board["totals"]["veg"]["by_column"][proc_id] == 0
+    assert board["totals"]["proc"]["cents"] == 1500
+    assert board["totals"]["veg"]["cents"] == 0
 
 
 def test_week_sheet_proc_uses_paired_veg_prices(app, user):
@@ -149,6 +158,20 @@ def test_week_sheet_confirm_then_mark_paid(app, variant, user):
     )
     assert order.payment_status == "paid"
     assert order.amount_paid_cents == order.total_cents
+
+
+def test_week_sheet_fulfill_does_not_mark_paid_and_can_undo(app, variant, user):
+    monday = monday_of(date(2026, 8, 17))
+    client = ClientService.create_client(name="Sara", phone="+5491100000006")
+    order = WeekSheetService.add_client_row(client.id, monday, user_id=user.id)
+    OrderService.set_line_quantity_by_variant(order.id, variant.id, 1, user_id=user.id)
+    OrderService.confirm_order(order.id, user_id=user.id)
+    order = OrderService.fulfill_order(order.id, user_id=user.id)
+    assert order.status == "fulfilled"
+    assert order.payment_status == "unpaid"
+    order = OrderService.unfulfill_order(order.id, user_id=user.id)
+    assert order.status == "confirmed"
+    assert order.payment_status == "unpaid"
 
 
 def test_week_end_is_sunday():

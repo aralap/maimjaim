@@ -21,6 +21,7 @@ class InvalidOrderStateError(OrderError):
     ACTION_LABELS = {
         "confirm": "confirmar",
         "fulfill": "entregar",
+        "unfulfill": "deshacer la entrega de",
         "cancel": "cancelar",
         "update_price": "cambiar precios en",
         "edit_lines": "editar",

@@ -33,6 +33,11 @@ class TestInventoryService:
         assert variant.inventory_item.quantity_on_hand == 8
         assert variant.inventory_item.quantity_reserved == 0
 
+        InventoryService.revert_sale(variant.id, 2, user_id=user.id)
+        db.session.refresh(variant.inventory_item)
+        assert variant.inventory_item.quantity_on_hand == 10
+        assert variant.inventory_item.quantity_reserved == 2
+
 
 class TestOrderService:
     def test_create_and_confirm_order(self, app, variant, user):
@@ -55,8 +60,24 @@ class TestOrderService:
         OrderService.confirm_order(order.id, user_id=user.id)
         order = OrderService.fulfill_order(order.id, user_id=user.id)
         assert order.status == "fulfilled"
+        assert order.payment_status == "unpaid"
         db.session.refresh(variant.inventory_item)
         assert variant.inventory_item.quantity_on_hand == 9
+        assert variant.inventory_item.quantity_reserved == 0
+
+    def test_unfulfill_order_restores_confirmed_without_payment(self, app, variant, user):
+        order = OrderService.create_order(
+            lines=[OrderLineInput(variant_id=variant.id, quantity=1)],
+            user_id=user.id,
+        )
+        OrderService.confirm_order(order.id, user_id=user.id)
+        OrderService.fulfill_order(order.id, user_id=user.id)
+        order = OrderService.unfulfill_order(order.id, user_id=user.id)
+        assert order.status == "confirmed"
+        assert order.payment_status == "unpaid"
+        db.session.refresh(variant.inventory_item)
+        assert variant.inventory_item.quantity_on_hand == 10
+        assert variant.inventory_item.quantity_reserved == 1
 
     def test_cancel_confirmed_order(self, app, variant, user):
         order = OrderService.create_order(

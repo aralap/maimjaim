@@ -181,8 +181,15 @@ def week_sheet_mark_paid(order_id):
 def week_sheet_fulfill(order_id):
     monday = parse_week_start(request.form.get("week"))
     try:
-        order = OrderService.fulfill_order(order_id, user_id=current_user.id)
-        flash(f"Pedido {order.order_number} entregado.", "success")
+        order = OrderService.get_order(order_id)
+        if not order:
+            raise InventoryError("Pedido no encontrado")
+        if order.status == Order.STATUS_FULFILLED:
+            order = OrderService.unfulfill_order(order_id, user_id=current_user.id)
+            flash(f"Pedido {order.order_number} ya no está entregado.", "success")
+        else:
+            order = OrderService.fulfill_order(order_id, user_id=current_user.id)
+            flash(f"Pedido {order.order_number} entregado (el pago se marca aparte).", "success")
     except (InvalidOrderStateError, InventoryError) as exc:
         flash(str(exc), "error")
     return _week_redirect(monday)

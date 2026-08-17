@@ -59,6 +59,7 @@ AUDIT_ACTIONS = {
     "order.create": "Pedido creado",
     "order.confirm": "Pedido confirmado",
     "order.fulfill": "Pedido entregado",
+    "order.unfulfill": "Entrega deshecha",
     "order.cancel": "Pedido cancelado",
     "order.payment.update": "Pago actualizado",
     "order.delivery.update": "Entrega actualizada",

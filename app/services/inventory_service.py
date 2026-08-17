@@ -221,6 +221,32 @@ class InventoryService:
         return item
 
     @staticmethod
+    def revert_sale(
+        variant_id: int,
+        qty: int,
+        *,
+        reference_type: str | None = None,
+        reference_id: int | None = None,
+        user_id: int | None = None,
+    ) -> InventoryItem:
+        if qty <= 0:
+            raise InventoryError("Revert quantity must be positive")
+
+        item = InventoryService._lock_inventory(variant_id)
+        item.quantity_on_hand += qty
+        item.quantity_reserved += qty
+        InventoryService._record_movement(
+            variant_id,
+            delta=qty,
+            reason=InventoryMovement.REASON_RETURN,
+            reference_type=reference_type,
+            reference_id=reference_id,
+            user_id=user_id,
+        )
+        db.session.flush()
+        return item
+
+    @staticmethod
     def list_inventory() -> list[InventoryItem]:
         return (
             InventoryItem.query.join(ProductVariant)

@@ -621,6 +621,36 @@ class OrderService:
         return order
 
     @staticmethod
+    def unfulfill_order(order_id: int, user_id: int | None = None) -> Order:
+        order = db.session.get(Order, order_id)
+        if not order:
+            raise InventoryError(f"Pedido {order_id} no encontrado")
+        if order.status != Order.STATUS_FULFILLED:
+            raise InvalidOrderStateError(order_id, order.status, "unfulfill")
+
+        try:
+            for line in order.lines:
+                InventoryService.revert_sale(
+                    line.variant_id,
+                    line.quantity,
+                    reference_type="order",
+                    reference_id=order.id,
+                    user_id=user_id,
+                )
+            order.status = Order.STATUS_CONFIRMED
+            OrderService._audit_order(
+                order,
+                "order.unfulfill",
+                f"Entrega deshecha: {order.order_number}",
+                user_id=user_id,
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
+        return order
+
+    @staticmethod
     def cancel_order(order_id: int, user_id: int | None = None) -> Order:
         order = db.session.get(Order, order_id)
         if not order:
