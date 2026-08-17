@@ -152,6 +152,7 @@ class OrderService:
         user_id: int | None = None,
         auto_confirm: bool = False,
         allow_empty: bool = False,
+        price_type: str | None = None,
     ) -> Order:
         if not lines and not allow_empty:
             raise InventoryError("El pedido debe tener al menos un artículo")
@@ -165,6 +166,9 @@ class OrderService:
                 return existing
 
         customer = customer or CustomerInput()
+        chosen_price_type = (price_type or Order.PRICE_RETAIL).strip().lower()
+        if chosen_price_type not in {Order.PRICE_RETAIL, Order.PRICE_WHOLESALE}:
+            raise InventoryError("Tipo de precio inválido")
         order = Order(
             order_number=OrderService._generate_order_number(),
             status=Order.STATUS_DRAFT,
@@ -174,6 +178,7 @@ class OrderService:
             customer_email=customer.email,
             notes=notes,
             delivery_date=delivery_date,
+            price_type=chosen_price_type,
             payment_status=Order.PAYMENT_UNPAID,
             amount_paid_cents=0,
             created_by_id=user_id,
@@ -182,6 +187,8 @@ class OrderService:
         )
 
         OrderService._apply_client_to_order(order, client_id)
+        if client_id and not price_type and order.client and order.client.price_type:
+            order.price_type = order.client.price_type
         if not client_id:
             if customer.name:
                 order.customer_name = customer.name
@@ -374,6 +381,40 @@ class OrderService:
         return order
 
     @staticmethod
+    def _price_for_order_variant(order: Order, variant: ProductVariant) -> tuple[str, int]:
+        wanted = order.price_type or Order.PRICE_RETAIL
+        if wanted == Order.PRICE_WHOLESALE and variant.has_wholesale_price:
+            return OrderService.resolve_line_price(variant, OrderLine.PRICE_WHOLESALE)
+        return OrderService.resolve_line_price(variant, OrderLine.PRICE_RETAIL)
+
+    @staticmethod
+    def set_order_price_type(order_id: int, price_type: str, user_id: int | None = None) -> Order:
+        order = OrderService._get_draft_order(order_id)
+        chosen = (price_type or Order.PRICE_RETAIL).strip().lower()
+        if chosen not in {Order.PRICE_RETAIL, Order.PRICE_WHOLESALE}:
+            raise InventoryError("Tipo de precio inválido")
+        before = order.price_type
+        order.price_type = chosen
+        if order.client:
+            order.client.price_type = chosen
+        for line in order.lines:
+            if line.price_type == OrderLine.PRICE_CUSTOM:
+                continue
+            line.price_type, line.unit_price_cents = OrderService._price_for_order_variant(
+                order, line.variant
+            )
+        order.sync_payment_status()
+        OrderService._audit_order(
+            order,
+            "order.price_type.update",
+            f"Lista de precios actualizada en {order.order_number}",
+            user_id=user_id,
+            extra={"price_type_before": before, "price_type_after": chosen},
+        )
+        db.session.commit()
+        return order
+
+    @staticmethod
     def set_line_quantity_by_variant(
         order_id: int,
         variant_id: int,
@@ -388,9 +429,13 @@ class OrderService:
             return OrderService.remove_line(order_id, line.id, user_id=user_id, allow_empty=True)
         if line:
             return OrderService.update_line_quantity(order_id, line.id, quantity, user_id=user_id)
+        variant = ProductService.get_variant(variant_id)
+        if not variant:
+            raise InventoryError("Producto no encontrado")
+        price_type, _unit_price = OrderService._price_for_order_variant(order, variant)
         return OrderService.add_line(
             order_id,
-            OrderLineInput(variant_id=variant_id, quantity=quantity),
+            OrderLineInput(variant_id=variant_id, quantity=quantity, price_type=price_type),
             user_id=user_id,
         )
 

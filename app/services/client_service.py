@@ -14,6 +14,7 @@ def _client_details(client: Client) -> dict:
         "city": client.city,
         "tax_id": client.tax_id,
         "preferred_payment_method": client.preferred_payment_method,
+        "price_type": client.price_type,
         "is_active": client.is_active,
         "notes": client.notes,
     }

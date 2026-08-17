@@ -9,6 +9,8 @@ class Order(TimestampMixin, db.Model):
         db.UniqueConstraint("api_client_id", "external_id", name="uq_order_api_external"),
     )
 
+    PRICE_RETAIL = "retail"
+    PRICE_WHOLESALE = "wholesale"
     STATUS_DRAFT = "draft"
     STATUS_CONFIRMED = "confirmed"
     STATUS_FULFILLED = "fulfilled"
@@ -38,6 +40,7 @@ class Order(TimestampMixin, db.Model):
     payment_reference = db.Column(EncryptedString(), nullable=True)
     payment_notes = db.Column(EncryptedText(), nullable=True)
     delivery_date = db.Column(db.Date, nullable=True, index=True)
+    price_type = db.Column(db.String(32), nullable=False, default="retail")
     created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     api_client_id = db.Column(db.Integer, db.ForeignKey("api_clients.id"), nullable=True)
     external_id = db.Column(db.String(255), nullable=True)

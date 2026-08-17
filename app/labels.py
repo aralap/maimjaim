@@ -62,6 +62,7 @@ AUDIT_ACTIONS = {
     "order.cancel": "Pedido cancelado",
     "order.payment.update": "Pago actualizado",
     "order.delivery.update": "Entrega actualizada",
+    "order.price_type.update": "Lista de precios actualizada",
     "order.line.price.update": "Precio de línea actualizado",
     "order.line.add": "Artículo agregado",
     "order.line.remove": "Artículo quitado",

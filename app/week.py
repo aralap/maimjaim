@@ -45,3 +45,28 @@ def product_short_code(name: str) -> str:
     if len(tokens) > 1:
         return "".join(t[0] for t in tokens if t[0].isalpha())[:3].upper()
     return letters[:2].upper()
+
+
+def sheet_column_label(name: str) -> str:
+    text = (name or "").strip()
+    if text.lower().endswith(" revisada"):
+        return text[: -len(" revisada")].strip() or text
+    return text
+
+
+def variant_column_kind(sku: str) -> str:
+    value = (sku or "").upper()
+    if value.startswith("PROC"):
+        return "proc"
+    if value.startswith("VEG"):
+        return "veg"
+    return "other"
+
+
+def paired_sku(sku: str) -> str | None:
+    value = (sku or "").strip().upper()
+    if value.startswith("PROC-"):
+        return "VEG-" + value[5:]
+    if value.startswith("VEG-"):
+        return "PROC-" + value[4:]
+    return None

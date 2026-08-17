@@ -5,7 +5,7 @@ from flask_login import current_user
 
 from app.labels import PAYMENT_METHOD_CHOICES
 from app.money import optional_pesos_to_cents
-from app.models import OrderLine
+from app.models import Order, OrderLine
 from app.services import ClientService, OrderService, ProductService, WeekSheetService
 from app.services.exceptions import InvalidOrderStateError, InventoryError
 from app.services.order_service import OrderLineInput, PaymentInput
@@ -142,6 +142,18 @@ def week_sheet_remove_client(order_id):
     return _week_redirect(monday)
 
 
+@bp.route("/planilla/<int:order_id>/confirm", methods=["POST"])
+@approved_required
+def week_sheet_confirm(order_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        order = OrderService.confirm_order(order_id, user_id=current_user.id)
+        flash(f"Pedido {order.order_number} confirmado.", "success")
+    except (InvalidOrderStateError, InventoryError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
 @bp.route("/planilla/columns", methods=["POST"])
 @approved_required
 def week_sheet_add_column():
@@ -189,6 +201,33 @@ def week_sheet_set_qty(order_id):
             order_id, variant_id, quantity, user_id=current_user.id
         )
     except (InventoryError, InvalidOrderStateError, ValueError, KeyError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
+@bp.route("/planilla/<int:order_id>/toggle-raw", methods=["POST"])
+@approved_required
+def week_sheet_toggle_raw(order_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        variant_id = int(request.form["variant_id"])
+        WeekSheetService.toggle_produce_kind(order_id, variant_id, user_id=current_user.id)
+    except (InventoryError, InvalidOrderStateError, ValueError, KeyError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
+@bp.route("/planilla/<int:order_id>/price-type", methods=["POST"])
+@approved_required
+def week_sheet_set_price_type(order_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        OrderService.set_order_price_type(
+            order_id,
+            request.form.get("price_type") or Order.PRICE_RETAIL,
+            user_id=current_user.id,
+        )
+    except (InventoryError, InvalidOrderStateError, ValueError) as exc:
         flash(str(exc), "error")
     return _week_redirect(monday)
 

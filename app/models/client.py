@@ -21,6 +21,7 @@ class Client(TimestampMixin, db.Model):
     tax_id = db.Column(EncryptedString(), nullable=True)
     notes = db.Column(EncryptedText(), nullable=True)
     preferred_payment_method = db.Column(EncryptedString(), nullable=True)
+    price_type = db.Column(db.String(32), nullable=False, default="retail")
     is_active = db.Column(db.Boolean, nullable=False, default=True)
 
     orders = db.relationship("Order", back_populates="client", lazy="dynamic")
