@@ -133,6 +133,24 @@ def test_week_sheet_mayorista_uses_wholesale_price(app, variant, user):
     assert client.price_type == "wholesale"
 
 
+def test_week_sheet_confirm_then_mark_paid(app, variant, user):
+    monday = monday_of(date(2026, 8, 17))
+    client = ClientService.create_client(name="Romi", phone="+5491100000005")
+    order = WeekSheetService.add_client_row(client.id, monday, user_id=user.id)
+    OrderService.set_line_quantity_by_variant(order.id, variant.id, 1, user_id=user.id)
+    order = OrderService.confirm_order(order.id, user_id=user.id)
+    assert order.payment_status == "unpaid"
+    from app.services.order_service import PaymentInput
+
+    order = OrderService.update_payment(
+        order.id,
+        PaymentInput(payment_method="cash", amount_paid_cents=order.total_cents),
+        user_id=user.id,
+    )
+    assert order.payment_status == "paid"
+    assert order.amount_paid_cents == order.total_cents
+
+
 def test_week_end_is_sunday():
     monday = monday_of(date(2026, 8, 17))
     assert monday.weekday() == 0

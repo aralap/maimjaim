@@ -154,6 +154,40 @@ def week_sheet_confirm(order_id):
     return _week_redirect(monday)
 
 
+@bp.route("/planilla/<int:order_id>/paid", methods=["POST"])
+@approved_required
+def week_sheet_mark_paid(order_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        order = OrderService.get_order(order_id)
+        if not order:
+            raise InventoryError("Pedido no encontrado")
+        OrderService.update_payment(
+            order_id,
+            PaymentInput(
+                payment_method=order.payment_method or "cash",
+                amount_paid_cents=order.total_cents,
+            ),
+            user_id=current_user.id,
+        )
+        flash(f"Pedido {order.order_number} marcado como pagado.", "success")
+    except (InventoryError, InvalidOrderStateError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
+@bp.route("/planilla/<int:order_id>/fulfill", methods=["POST"])
+@approved_required
+def week_sheet_fulfill(order_id):
+    monday = parse_week_start(request.form.get("week"))
+    try:
+        order = OrderService.fulfill_order(order_id, user_id=current_user.id)
+        flash(f"Pedido {order.order_number} entregado.", "success")
+    except (InvalidOrderStateError, InventoryError) as exc:
+        flash(str(exc), "error")
+    return _week_redirect(monday)
+
+
 @bp.route("/planilla/columns", methods=["POST"])
 @approved_required
 def week_sheet_add_column():
@@ -358,6 +392,8 @@ def update_line_price(order_id, line_id):
         flash("Precio actualizado.", "success")
     except (InventoryError, InvalidOrderStateError, ValueError) as exc:
         flash(str(exc), "error")
+    if request.form.get("week"):
+        return _week_redirect(parse_week_start(request.form.get("week")))
     return redirect(url_for("web_orders.detail", order_id=order_id))
 
 

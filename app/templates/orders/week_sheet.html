@@ -31,7 +31,7 @@
                 <span class="inline-block w-3.5 h-3.5 rounded-sm border border-green-300 bg-green-100"></span>
                 Verde = VEG
             </span>
-            <span>Círculo = revisada · clic en una cabecera para achicar la columna</span>
+            <span>Círculo = revisada · naranja = entregado · clic en una cabecera para achicar la columna</span>
         </div>
     </div>
     <div class="flex items-center gap-2">
@@ -134,16 +134,37 @@
             {% for row in rows %}
             {% set client_name = row.client.name if row.client else (row.order.customer_name or 'Mostrador') %}
             {% set tipo_label = 'Mayorista' if row.order.price_type == 'wholesale' else 'Minorista' %}
-            <tr>
+            {% set delivered = row.order.status == 'fulfilled' %}
+            <tr class="{% if delivered %}bg-orange-200{% endif %}">
                 <td data-col="meta-client"
-                    class="col-sheet sticky left-0 z-10 px-3 py-2 border border-gray-300 {% if row.order.status == 'draft' %}bg-amber-50{% elif row.order.status == 'fulfilled' %}bg-gray-50{% else %}bg-white{% endif %}">
+                    class="col-sheet sticky left-0 z-10 px-3 py-2 border border-gray-300 {% if delivered %}bg-orange-200{% elif row.order.status == 'draft' %}bg-amber-50{% else %}bg-white{% endif %}">
                     <div class="col-wide">
+                        {% if row.order.status == 'confirmed' %}
+                        <form method="post" action="{{ url_for('web_orders.week_sheet_fulfill', order_id=row.order.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                            <button type="submit" class="font-medium text-indigo-700 hover:underline text-left" title="Marcar como entregado">
+                                {{ client_name }}
+                            </button>
+                        </form>
+                        {% elif delivered %}
+                        <span class="font-medium text-gray-900">{{ client_name }}</span>
+                        {% else %}
                         <a href="{{ url_for('web_orders.detail', order_id=row.order.id) }}" class="font-medium text-indigo-700 hover:underline">
                             {{ client_name }}
                         </a>
+                        {% endif %}
                         <div class="text-[10px] text-gray-500">{{ labels.ORDER_STATUS.get(row.order.status, row.order.status) }}</div>
                     </div>
+                    {% if row.order.status == 'confirmed' %}
+                    <form method="post" action="{{ url_for('web_orders.week_sheet_fulfill', order_id=row.order.id) }}" class="col-thin">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                        <button type="submit" class="text-[10px] font-semibold truncate" title="Marcar como entregado">{{ client_name[:2] }}</button>
+                    </form>
+                    {% else %}
                     <div class="col-thin text-[10px] font-semibold truncate" title="{{ client_name }}">{{ client_name[:2] }}</div>
+                    {% endif %}
                 </td>
                 {% for column in columns %}
                 {% set cell = row.cells.get(column.variant_id, {'qty': 0, 'as_veg': False, 'active_variant_id': column.variant_id}) %}
@@ -151,16 +172,9 @@
                 {% set kind = column_kinds.get(column.variant_id, 'other') %}
                 <td data-col="{{ column.id }}"
                     title="{% if cell.as_veg %}Sin revisar (VEG): {% endif %}{{ column.variant.display_name }}"
-                    class="col-sheet px-1 py-1 border border-gray-300 text-center {% if cell.as_veg %}bg-green-50{% elif kind == 'veg' %}bg-green-50{% elif kind == 'proc' %}bg-yellow-50{% endif %}">
+                    class="col-sheet px-1 py-1 border border-gray-300 text-center {% if delivered %}bg-orange-200{% elif cell.as_veg %}bg-green-50{% elif kind == 'veg' %}bg-green-50{% elif kind == 'proc' %}bg-yellow-50{% endif %}">
                     {% if row.editable %}
                     <div class="inline-flex items-center justify-center">
-                        <form method="post" action="{{ url_for('web_orders.week_sheet_set_qty', order_id=row.order.id) }}" class="qty-step">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="week" value="{{ monday.isoformat() }}">
-                            <input type="hidden" name="variant_id" value="{{ cell.active_variant_id }}">
-                            <input type="hidden" name="delta" value="-1">
-                            <button type="submit" class="w-6 h-6 rounded text-gray-500 hover:bg-gray-200">−</button>
-                        </form>
                         {% if qty and kind == 'proc' %}
                         <form method="post" action="{{ url_for('web_orders.week_sheet_toggle_raw', order_id=row.order.id) }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -175,6 +189,13 @@
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="week" value="{{ monday.isoformat() }}">
                             <input type="hidden" name="variant_id" value="{{ cell.active_variant_id }}">
+                            <input type="hidden" name="delta" value="-1">
+                            <button type="submit" class="w-6 h-6 rounded text-gray-500 hover:bg-gray-200">−</button>
+                        </form>
+                        <form method="post" action="{{ url_for('web_orders.week_sheet_set_qty', order_id=row.order.id) }}" class="qty-step">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                            <input type="hidden" name="variant_id" value="{{ cell.active_variant_id }}">
                             <input type="hidden" name="delta" value="1">
                             <button type="submit" class="w-6 h-6 rounded text-gray-500 hover:bg-gray-200">+</button>
                         </form>
@@ -184,7 +205,7 @@
                     {% endif %}
                 </td>
                 {% endfor %}
-                <td data-col="meta-tipo" class="col-sheet px-2 py-2 border border-gray-300">
+                <td data-col="meta-tipo" class="col-sheet px-2 py-2 border border-gray-300 {% if delivered %}bg-orange-200{% endif %}">
                     {% if row.editable %}
                     <form method="post" action="{{ url_for('web_orders.week_sheet_set_price_type', order_id=row.order.id) }}" class="col-wide">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -199,7 +220,7 @@
                     {% endif %}
                     <span class="col-thin text-[10px] font-semibold" title="{{ tipo_label }}">{{ 'May' if row.order.price_type == 'wholesale' else 'Min' }}</span>
                 </td>
-                <td data-col="meta-entrega" class="col-sheet px-2 py-2 border border-gray-300">
+                <td data-col="meta-entrega" class="col-sheet px-2 py-2 border border-gray-300 {% if delivered %}bg-orange-200{% endif %}">
                     {% if row.editable %}
                     <form method="post" action="{{ url_for('web_orders.week_sheet_set_delivery', order_id=row.order.id) }}" class="col-wide">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -217,12 +238,30 @@
                     {% endif %}
                     {% endfor %}
                 </td>
-                <td data-col="meta-cant" class="col-sheet px-3 py-2 border border-gray-300 text-right font-medium">{{ row.qty_total or '' }}</td>
-                <td data-col="meta-total" class="col-sheet px-3 py-2 border border-gray-300 text-right">
+                <td data-col="meta-cant" class="col-sheet px-3 py-2 border border-gray-300 text-right font-medium {% if delivered %}bg-orange-200{% endif %}">{{ row.qty_total or '' }}</td>
+                <td data-col="meta-total" class="col-sheet px-3 py-2 border border-gray-300 text-right {% if delivered %}bg-orange-200{% endif %}">
+                    {% if row.order.status == 'confirmed' and row.order.lines %}
+                    <button type="button"
+                            class="col-wide text-indigo-700 hover:underline font-medium"
+                            onclick="document.getElementById('price-editor-{{ row.order.id }}').classList.toggle('hidden')">
+                        {{ format_cents(row.order.total_cents) }}
+                    </button>
+                    <button type="button"
+                            class="col-thin text-[10px] text-indigo-700"
+                            onclick="document.getElementById('price-editor-{{ row.order.id }}').classList.toggle('hidden')">
+                        {{ format_cents(row.order.total_cents) }}
+                    </button>
+                    {% else %}
                     <span class="col-wide">{{ format_cents(row.order.total_cents) }}</span>
                     <span class="col-thin text-[10px]">{{ format_cents(row.order.total_cents) }}</span>
+                    {% endif %}
+                    {% if row.order.payment_status == 'paid' %}
+                    <div class="col-wide text-[10px] text-green-700">Pagado</div>
+                    {% elif row.order.payment_status == 'partial' %}
+                    <div class="col-wide text-[10px] text-amber-700">Pago parcial</div>
+                    {% endif %}
                 </td>
-                <td data-col="meta-actions" class="col-sheet px-2 py-2 border border-gray-300 text-right whitespace-nowrap">
+                <td data-col="meta-actions" class="col-sheet px-2 py-2 border border-gray-300 text-right whitespace-nowrap {% if delivered %}bg-orange-200{% endif %}">
                     {% if row.editable %}
                     <div class="col-wide flex items-center justify-end gap-2">
                         <form method="post" action="{{ url_for('web_orders.week_sheet_confirm', order_id=row.order.id) }}">
@@ -237,9 +276,64 @@
                         </form>
                     </div>
                     <div class="col-thin text-[10px] text-gray-400">✓</div>
+                    {% elif row.order.status in ['confirmed', 'fulfilled'] and row.order.payment_status != 'paid' %}
+                    <form method="post" action="{{ url_for('web_orders.week_sheet_mark_paid', order_id=row.order.id) }}" class="col-wide">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                        <button type="submit" class="text-xs text-green-700 hover:text-green-900">Pagado</button>
+                    </form>
+                    <span class="col-thin text-[10px] text-green-700">$</span>
+                    {% elif row.order.payment_status == 'paid' %}
+                    <span class="col-wide text-xs text-green-700">Pagado</span>
+                    <span class="col-thin text-[10px] text-green-700">OK</span>
                     {% endif %}
                 </td>
             </tr>
+            {% if row.order.status == 'confirmed' and row.order.lines %}
+            <tr id="price-editor-{{ row.order.id }}" class="hidden bg-gray-50">
+                <td colspan="{{ 6 + columns|length }}" class="px-3 py-3 border border-gray-300">
+                    <p class="text-xs font-medium text-gray-600 mb-2">Precios de {{ client_name }}</p>
+                    <div class="space-y-3">
+                        {% for line in row.order.lines %}
+                        <form method="post"
+                              action="{{ url_for('web_orders.update_line_price', order_id=row.order.id, line_id=line.id) }}"
+                              class="flex flex-wrap gap-3 items-end">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+                            <div class="min-w-[8rem] text-sm font-medium text-gray-800">
+                                {{ line.variant.display_name }}
+                                <span class="block text-[10px] text-gray-500">× {{ line.quantity }} · {{ format_cents(line.line_total_cents) }}</span>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500">Tipo</label>
+                                <select name="price_type" class="mt-1 border rounded-md px-2 py-1 text-xs"
+                                        onchange="this.form.querySelector('.custom-price-field').classList.toggle('hidden', this.value !== 'custom')">
+                                    <option value="retail" {% if line.price_type == 'retail' %}selected{% endif %}>
+                                        Lista ({{ format_cents(line.variant.price_cents) }})
+                                    </option>
+                                    {% if line.variant.has_wholesale_price %}
+                                    <option value="wholesale" {% if line.price_type == 'wholesale' %}selected{% endif %}>
+                                        Mayorista ({{ format_cents(line.variant.wholesale_price_cents) }})
+                                    </option>
+                                    {% endif %}
+                                    <option value="custom" {% if line.price_type == 'custom' %}selected{% endif %}>Otro</option>
+                                </select>
+                            </div>
+                            <div class="custom-price-field {% if line.price_type != 'custom' %}hidden{% endif %}">
+                                <label class="block text-xs font-medium text-gray-500">Precio ($)</label>
+                                <input type="number" name="custom_price" step="0.01" min="0"
+                                       value="{{ '%.2f'|format(line.unit_price_cents / 100) }}"
+                                       class="mt-1 w-24 border rounded-md px-2 py-1 text-xs">
+                            </div>
+                            <button type="submit" class="px-3 py-1 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700">
+                                Guardar
+                            </button>
+                        </form>
+                        {% endfor %}
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
             {% else %}
             <tr>
                 <td colspan="{{ 6 + columns|length }}" class="px-3 py-8 text-center text-gray-500">
