@@ -47,6 +47,10 @@ PRICE_TYPES = {
 }
 
 AUDIT_ACTIONS = {
+    "maintenance.reset.stock": "Stock restablecido",
+    "maintenance.reset.sales": "Ventas restablecidas",
+    "maintenance.reset.all": "Stock y ventas restablecidos",
+    "order.delete": "Pedido eliminado",
     "product.create": "Producto creado",
     "product.update": "Producto actualizado",
     "product.deactivate": "Producto desactivado",
@@ -78,6 +82,7 @@ AUDIT_ACTIONS = {
 }
 
 ENTITY_TYPES = {
+    "maintenance": "Mantenimiento",
     "product": "Producto",
     "inventory": "Inventario",
     "order": "Pedido",

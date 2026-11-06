@@ -259,4 +259,7 @@
         </div>
     </div>
 </div>
+{% if current_user.is_admin() %}
+<a class="delete-link" href="{{ url_for('web_maintenance.delete_order', order_id=order.id) }}">Eliminar este pedido…</a>
+{% endif %}
 {% endblock %}

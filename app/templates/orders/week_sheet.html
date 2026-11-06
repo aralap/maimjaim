@@ -58,7 +58,7 @@
     </div>
 </div>
 
-<div class="print-hide mb-4 flex flex-wrap gap-4 items-end">
+<div class="week-sheet-controls print-hide mb-4 flex flex-wrap gap-4 items-end">
     {% if unused_clients %}
     <form method="post" action="{{ url_for('web_orders.week_sheet_add_client') }}" class="flex items-end gap-2">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

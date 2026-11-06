@@ -1,4 +1,4 @@
-<tr id="inventory-row-{{ item.variant_id }}">
+<tr data-search-row id="inventory-row-{{ item.variant_id }}">
     <td class="px-6 py-4 font-medium">{{ item.variant.sku }}</td>
     <td class="px-6 py-4">{{ item.variant.product.name }}</td>
     <td class="px-6 py-4">{{ item.quantity_on_hand }}</td>
@@ -12,7 +12,7 @@
               hx-swap="outerHTML"
               class="flex items-center space-x-2">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="number" name="quantity" placeholder="+/-" class="w-20 border rounded px-2 py-1 text-sm">
+            <input type="number" name="quantity" required aria-label="Ajuste de stock para {{ item.variant.sku }}" placeholder="+/-" class="w-20 border rounded px-2 py-1 text-sm">
             <button type="submit" class="text-sm text-indigo-600">Ajustar</button>
         </form>
         {% endif %}

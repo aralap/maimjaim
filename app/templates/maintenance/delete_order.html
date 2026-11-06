@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "macros.html" import format_cents, status_badge %}
+{% block title %}Eliminar pedido - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Administración</p><h1>Eliminar pedido</h1><p class="page-description">Revisá los datos antes de eliminar este registro.</p></div></div>
+<div class="confirmation-panel">
+    <h2>{{ order.order_number }}</h2>
+    <p class="mb-3">{{ order.customer_name or 'Sin nombre de cliente' }} · {{ format_cents(order.total_cents) }}</p>
+    {{ status_badge(order.status) }}
+    <div class="warning-note">Se eliminarán el pedido, sus artículos y sus datos de pago. El cliente y las fichas de productos se conservan. Las reservas de este pedido se liberan. El stock físico no cambia: los productos ya entregados no vuelven al inventario. Esta acción no se puede deshacer desde la aplicación.</div>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-5"><label class="form-label" for="delete-reason">Motivo</label><textarea id="delete-reason" name="reason" class="form-control" required maxlength="500" rows="2">{{ request.form.get('reason', '') }}</textarea></div>
+        <div class="mb-5"><label class="form-label" for="delete-confirmation">Escribí {{ order.order_number }} para confirmar</label><input type="text" name="confirmation" id="delete-confirmation" class="form-control" required autocomplete="off" spellcheck="false"></div>
+        <div class="heading-actions"><button type="submit" class="btn btn-danger">Eliminar pedido</button><a class="btn" href="{{ url_for('web_orders.detail', order_id=order.id) }}">Volver al pedido</a></div>
+    </form>
+</div>
+{% endblock %}

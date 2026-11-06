@@ -3,127 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#163e35">
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/tailwind.min.css') }}">
+    <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    {% macro nav_links(link_class) %}
-    {% if current_user.is_authenticated %}
-    <a href="{{ url_for('web_dashboard.index') }}" class="{{ link_class }}">Panel</a>
-    <a href="{{ url_for('web_products.list_products') }}" class="{{ link_class }}">Productos</a>
-    <a href="{{ url_for('web_inventory.list_inventory') }}" class="{{ link_class }}">Inventario</a>
-    <a href="{{ url_for('web_inventory.movements') }}" class="{{ link_class }}">Movimientos</a>
-    <a href="{{ url_for('web_orders.list_orders') }}" class="{{ link_class }}">Pedidos</a>
-    <a href="{{ url_for('web_orders.week_sheet') }}" class="{{ link_class }}">Planilla</a>
-    <a href="{{ url_for('web_orders.procurement_plan') }}" class="{{ link_class }}">A comprar</a>
-    <a href="{{ url_for('web_clients.list_clients') }}" class="{{ link_class }}">Clientes</a>
-    {% if current_user.is_admin() %}
-    <a href="{{ url_for('web_users.list_users') }}" class="{{ link_class }}">Usuarios</a>
-    <a href="{{ url_for('web_logs.list_logs') }}" class="{{ link_class }}">Registro</a>
-    {% endif %}
-    {% endif %}
-    {% endmacro %}
-
-    <nav class="bg-white border-b border-gray-200 relative">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <a href="{{ url_for('web_dashboard.index') }}" class="text-xl font-bold text-indigo-600 shrink-0">{{ app_name }}</a>
-
-                <div class="hidden md:flex items-center space-x-6">
-                    {{ nav_links("text-gray-600 hover:text-gray-900 text-sm whitespace-nowrap") }}
-                </div>
-
-                <div class="hidden md:flex items-center space-x-4 shrink-0">
-                    {% if current_user.is_authenticated %}
-                    <span class="text-sm text-gray-500">{{ current_user.name }} ({{ labels.USER_ROLES.get(current_user.role, current_user.role) }})</span>
-                    <a href="{{ url_for('web_auth.logout') }}" class="text-sm text-indigo-600 hover:text-indigo-800">Salir</a>
-                    {% else %}
-                    <a href="{{ url_for('web_auth.login') }}" class="text-sm text-indigo-600 hover:text-indigo-800">Ingresar con Google</a>
-                    {% endif %}
-                </div>
-
-                <button type="button"
-                        id="mobile-menu-btn"
-                        class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        aria-controls="mobile-menu"
-                        aria-expanded="false"
-                        aria-label="Abrir menú">
-                    <svg class="h-6 w-6" id="mobile-menu-icon-open" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                    <svg class="h-6 w-6 hidden" id="mobile-menu-icon-close" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <div id="mobile-menu" class="hidden md:hidden border-t border-gray-200 bg-white">
-            <div class="max-w-7xl mx-auto px-4 py-3 space-y-1">
-                {{ nav_links("mobile-nav-link block px-3 py-2 rounded-md text-base text-gray-700 hover:bg-gray-100 hover:text-gray-900") }}
-                <div class="border-t border-gray-200 pt-3 mt-3">
-                    {% if current_user.is_authenticated %}
-                    <p class="px-3 py-2 text-sm text-gray-500">{{ current_user.name }} ({{ labels.USER_ROLES.get(current_user.role, current_user.role) }})</p>
-                    <a href="{{ url_for('web_auth.logout') }}" class="mobile-nav-link block px-3 py-2 rounded-md text-base text-indigo-600 hover:bg-gray-100">Salir</a>
-                    {% else %}
-                    <a href="{{ url_for('web_auth.login') }}" class="mobile-nav-link block px-3 py-2 rounded-md text-base text-indigo-600 hover:bg-gray-100">Ingresar con Google</a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+<body>
+{% set section = (request.endpoint or '').split('.')[0] %}
+{% macro nav_link(endpoint, label, symbol) %}
+<a href="{{ url_for(endpoint) }}" class="nav-link {% if section == endpoint.split('.')[0] and (section != 'web_orders' or request.endpoint == endpoint or (endpoint == 'web_orders.list_orders' and request.endpoint not in ['web_orders.week_sheet', 'web_orders.procurement_plan'])) and (section != 'web_inventory' or request.endpoint == endpoint) %}is-active{% endif %}"
+   {% if request.endpoint == endpoint %}aria-current="page"{% endif %}>
+    <span class="nav-symbol" aria-hidden="true">{{ symbol }}</span><span>{{ label }}</span>
+</a>
+{% endmacro %}
+<a class="skip-link" href="#main-content">Saltar al contenido</a>
+{% if current_user.is_authenticated and current_user.is_active %}
+<aside class="sidebar" id="app-menu" aria-label="Menú principal">
+    <a href="{{ url_for('web_dashboard.index') }}" class="brand"><span class="brand-mark" aria-hidden="true">m<span>j</span></span><span>Maim Jaim<small>Gestión comercial</small></span></a>
+    <nav class="sidebar-nav" aria-label="Navegación">
+        <p class="nav-group">Día a día</p>
+        {{ nav_link('web_dashboard.index', 'Resumen', '◫') }}
+        {{ nav_link('web_orders.week_sheet', 'Planilla semanal', '▦') }}
+        {{ nav_link('web_orders.list_orders', 'Pedidos y ventas', '↗') }}
+        {{ nav_link('web_orders.procurement_plan', 'A comprar', '+') }}
+        <p class="nav-group">Tu negocio</p>
+        {{ nav_link('web_products.list_products', 'Productos', '◇') }}
+        {{ nav_link('web_inventory.list_inventory', 'Inventario', '▤') }}
+        {{ nav_link('web_inventory.movements', 'Movimientos', '⇄') }}
+        {{ nav_link('web_clients.list_clients', 'Clientes', '◎') }}
+        {% if current_user.is_admin() %}
+        <p class="nav-group">Administración</p>
+        {{ nav_link('web_users.list_users', 'Usuarios', '♧') }}
+        {{ nav_link('web_logs.list_logs', 'Registro de actividad', '≡') }}
+        {{ nav_link('web_maintenance.index', 'Restablecer datos', '↺') }}
+        {% endif %}
     </nav>
-
-    <main class="{% block main_class %}max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8{% endblock %}">
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span> Todo tu negocio, en un lugar.</div>
+</aside>
+<button class="menu-backdrop" id="menu-backdrop" aria-label="Cerrar menú" hidden></button>
+{% endif %}
+<div class="{% if current_user.is_authenticated and current_user.is_active %}app-shell{% else %}guest-shell{% endif %}">
+    <header class="topbar">
+        {% if current_user.is_authenticated and current_user.is_active %}
+        <button type="button" id="mobile-menu-btn" class="menu-toggle" aria-controls="app-menu" aria-expanded="false" aria-label="Abrir menú">☰</button>
+        <div class="topbar-label"><span class="topbar-brand">Maim Jaim</span> <span class="breadcrumb-separator">/</span> <strong>{{ {'web_dashboard': 'Resumen', 'web_orders': 'Pedidos y ventas', 'web_products': 'Productos', 'web_inventory': 'Inventario', 'web_clients': 'Clientes', 'web_users': 'Usuarios', 'web_logs': 'Actividad', 'web_maintenance': 'Administración'}.get(section, 'Gestión') }}</strong></div>
+        {% else %}
+        <a href="{{ url_for('web_dashboard.index') }}" class="guest-brand">Maim Jaim</a>
+        {% endif %}
+        <div class="user-menu">
+            {% if current_user.is_authenticated %}
+            <span class="user-avatar" aria-hidden="true">{{ current_user.name[:1]|upper }}</span>
+            <span class="user-info">{{ current_user.name }}<small>{{ labels.USER_ROLES.get(current_user.role, current_user.role) }}</small></span>
+            <a href="{{ url_for('web_auth.logout') }}" class="logout-link">Salir</a>
+            {% else %}
+            <a href="{{ url_for('web_auth.login') }}" class="logout-link">Ingresar con Google</a>
+            {% endif %}
+        </div>
+    </header>
+    <main id="main-content" tabindex="-1" class="main-content {% block main_class %}max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8{% endblock %}">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="mb-6 space-y-2">
+        <div class="mb-6 space-y-2" aria-live="polite">
             {% for category, message in messages %}
-            <div class="rounded-md p-4 {% if category == 'error' %}bg-red-50 text-red-800{% elif category == 'success' %}bg-green-50 text-green-800{% else %}bg-blue-50 text-blue-800{% endif %}">
-                {{ message }}
-            </div>
+            <div role="{% if category == 'error' %}alert{% else %}status{% endif %}" class="flash-message {% if category == 'error' %}flash-error{% elif category == 'success' %}flash-success{% else %}flash-info{% endif %}">{{ message }}</div>
             {% endfor %}
         </div>
         {% endif %}
         {% endwith %}
-
         {% block content %}{% endblock %}
     </main>
-
-    <script>
-    (function () {
-        var btn = document.getElementById("mobile-menu-btn");
-        var menu = document.getElementById("mobile-menu");
-        var iconOpen = document.getElementById("mobile-menu-icon-open");
-        var iconClose = document.getElementById("mobile-menu-icon-close");
-        if (!btn || !menu) return;
-
-        function setOpen(open) {
-            menu.classList.toggle("hidden", !open);
-            iconOpen.classList.toggle("hidden", open);
-            iconClose.classList.toggle("hidden", !open);
-            btn.setAttribute("aria-expanded", open ? "true" : "false");
-            btn.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
-        }
-
-        btn.addEventListener("click", function () {
-            setOpen(menu.classList.contains("hidden"));
-        });
-
-        menu.querySelectorAll(".mobile-nav-link").forEach(function (link) {
-            link.addEventListener("click", function () { setOpen(false); });
-        });
-
-        document.addEventListener("click", function (e) {
-            if (!menu.classList.contains("hidden") && !menu.contains(e.target) && !btn.contains(e.target)) {
-                setOpen(false);
-            }
-        });
-
-        document.addEventListener("keydown", function (e) {
-            if (e.key === "Escape") setOpen(false);
-        });
-    })();
-    </script>
+    <footer class="app-footer">Maim Jaim <span>•</span> Gestión de pedidos e inventario</footer>
+</div>
 </body>
 </html>

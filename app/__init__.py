@@ -1,4 +1,4 @@
-from flask import Flask, redirect, request
+from flask import Flask, redirect, request, url_for
 from flask_login import current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -57,6 +57,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     from app.web.logs import bp as logs_bp
     from app.web.users import bp as users_bp
     from app.web.orders import bp as orders_bp
+    from app.web.maintenance import bp as maintenance_bp
     from app.api.v1 import bp as api_v1_bp
 
     app.register_blueprint(auth_bp)
@@ -67,6 +68,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     app.register_blueprint(logs_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(orders_bp)
+    app.register_blueprint(maintenance_bp)
     app.register_blueprint(api_v1_bp, url_prefix="/api/v1")
 
     csrf.exempt(api_v1_bp)

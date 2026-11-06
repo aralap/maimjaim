@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Restablecer datos - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div><p class="eyebrow">Administración</p><h1>Un nuevo comienzo.</h1><p class="page-description">Restablecé la operación sin volver a cargar tu catálogo ni tus clientes.</p></div>
+    <a class="btn" href="{{ url_for('web_logs.list_logs', entity_type='maintenance') }}">Ver restablecimientos</a>
+</div>
+<div class="preserved-note"><span aria-hidden="true">✓</span><div><strong>Tu base de trabajo se conserva.</strong><p>Las {{ counts.products }} fichas de productos, {{ counts.variants }} variantes y {{ counts.clients }} clientes siguen disponibles, con sus precios, datos y configuración. También se conservan los usuarios, las columnas de la planilla y el registro de actividad.</p></div></div>
+<div class="summary-strip" aria-label="Datos actuales"><span><b>{{ counts.orders }}</b> pedidos y ventas</span><span><b>{{ counts.stock }}</b> unidades en stock</span><span><b>{{ counts.reserved }}</b> unidades reservadas</span></div>
+<form method="post" action="{{ url_for('web_maintenance.reset') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset><legend class="mt-6 text-base font-semibold">1. Elegí qué restablecer</legend>
+    <div class="reset-options">
+        <label class="reset-option"><input type="radio" name="scope" value="stock" required {% if selected == 'stock' %}checked{% endif %}><strong>Solo stock</strong><p>Pone todas las existencias en cero. Conserva los pedidos y las ventas. Si hay pedidos confirmados o reservas, primero hay que resolverlos.</p><small>Se conservan los movimientos anteriores.</small></label>
+        <label class="reset-option"><input type="radio" name="scope" value="sales" required {% if selected == 'sales' %}checked{% endif %}><strong>Solo pedidos y ventas</strong><p>Elimina todos los pedidos, incluidos borradores, entregados y cancelados, junto con sus pagos. Libera las reservas y conserva el stock físico actual.</p><small>No devuelve al stock productos ya entregados.</small></label>
+        <label class="reset-option"><input type="radio" name="scope" value="all" required {% if selected == 'all' %}checked{% endif %}><strong>Stock, pedidos y ventas</strong><p>Elimina todos los pedidos y sus pagos. Pone las existencias y reservas en cero para empezar de nuevo.</p><small>Las fichas de productos y clientes se mantienen.</small></label>
+    </div></fieldset>
+    <div class="confirmation-panel">
+        <h2>2. Confirmá el restablecimiento</h2>
+        <div class="warning-note">Los datos eliminados no se pueden recuperar desde esta pantalla. Los movimientos y el registro de actividad permanecen como historial. Realizá esta operación cuando el equipo no esté cargando pedidos.</div>
+        <div class="mb-5"><label class="form-label" for="reset-reason">Motivo</label><textarea class="form-control" name="reason" id="reset-reason" rows="2" maxlength="500" required placeholder="Por ejemplo: cierre de pruebas y comienzo de la operación real">{{ request.form.get('reason', '') }}</textarea><p class="form-help">Queda registrado junto con tu usuario y la fecha.</p></div>
+        <div class="mb-5"><label class="form-label" for="reset-confirmation">Escribí RESTABLECER para confirmar</label><input class="form-control" type="text" id="reset-confirmation" name="confirmation" required autocomplete="off" spellcheck="false" pattern="RESTABLECER" aria-describedby="reset-confirmation-help"><p class="form-help" id="reset-confirmation-help">Se aplicará únicamente la opción seleccionada arriba.</p></div>
+        <button type="submit" class="btn btn-danger">Restablecer datos seleccionados</button>
+    </div>
+</form>
+{% endblock %}

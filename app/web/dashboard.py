@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template
 
-from app.models import Order
+from app.models import Client, Order
 from app.services import InventoryService, OrderService
 from app.web.decorators import approved_required
 
@@ -21,6 +21,10 @@ def index():
         draft_orders=draft_orders,
         low_stock=low_stock,
         recent_movements=recent_movements,
+        client_count=Client.query.filter_by(is_active=True).count(),
+        upcoming_orders=Order.query.filter(
+            Order.status.in_([Order.STATUS_DRAFT, Order.STATUS_CONFIRMED])
+        ).order_by(Order.delivery_date.asc().nullslast(), Order.created_at.desc()).limit(5).all(),
     )
 
 

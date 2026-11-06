@@ -1,66 +1,30 @@
 {% extends "base.html" %}
-{% from "macros.html" import format_cents, status_badge, payment_badge, movement_reason %}
-{% block title %}Panel - {{ app_name }}{% endblock %}
+{% from "macros.html" import format_cents, status_badge, movement_reason %}
+{% block title %}Resumen - {{ app_name }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-gray-900 mb-8">Panel</h1>
-
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-sm font-medium text-gray-500">Pedidos confirmados</h2>
-        <p class="text-3xl font-bold text-indigo-600 mt-2">{{ open_orders|length }}</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-sm font-medium text-gray-500">Pedidos en borrador</h2>
-        <p class="text-3xl font-bold text-gray-600 mt-2">{{ draft_orders|length }}</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-sm font-medium text-gray-500">Stock bajo</h2>
-        <p class="text-3xl font-bold text-red-600 mt-2">{{ low_stock|length }}</p>
-    </div>
+<div class="page-heading">
+    <div><p class="eyebrow">Tu negocio, al día</p><h1>Cada pedido cuenta.</h1><p class="page-description">Todo lo que necesitás para organizar las ventas y preparar las próximas entregas.</p></div>
+    <div class="heading-actions"><a class="btn" href="{{ url_for('web_orders.week_sheet') }}">Abrir planilla</a><a class="btn btn-primary" href="{{ url_for('web_orders.new_order') }}"><span aria-hidden="true">+</span> Nuevo pedido</a></div>
 </div>
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-    <div class="bg-white rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-medium text-gray-900">Alertas de stock bajo</h2>
-        </div>
-        <div class="p-6">
-            {% if low_stock %}
-            <ul class="divide-y divide-gray-200">
-                {% for item in low_stock %}
-                <li class="py-3 flex justify-between">
-                    <span>{{ item.variant.sku }} — {{ item.variant.product.name }}</span>
-                    <span class="text-red-600 font-medium">{{ item.quantity_available }} disponibles</span>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-gray-500">Todos los artículos están por encima del punto de reposición.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="bg-white rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h2 class="text-lg font-medium text-gray-900">Movimientos recientes</h2>
-            <a href="{{ url_for('web_inventory.movements') }}" class="text-sm text-indigo-600">Ver todos</a>
-        </div>
-        <div class="p-6">
-            {% if recent_movements %}
-            <ul class="divide-y divide-gray-200 text-sm">
-                {% for m in recent_movements %}
-                <li class="py-2 flex justify-between">
-                    <span>{{ m.variant.sku }} ({{ movement_reason(m.reason) }})</span>
-                    <span class="{% if m.delta > 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        {% if m.delta > 0 %}+{% endif %}{{ m.delta }}
-                    </span>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="text-gray-500">Sin movimientos aún.</p>
-            {% endif %}
-        </div>
-    </div>
+<div class="stat-grid">
+    <a class="stat-card featured" href="{{ url_for('web_orders.list_orders', status='confirmed') }}"><small>Listos para preparar</small><strong>{{ open_orders|length }}</strong><span>Pedidos confirmados →</span></a>
+    <a class="stat-card" href="{{ url_for('web_orders.list_orders', status='draft') }}"><small>Por confirmar</small><strong>{{ draft_orders|length }}</strong><span>Pedidos en borrador →</span></a>
+    <a class="stat-card" href="{{ url_for('web_inventory.list_inventory') }}"><small>Necesitan reposición</small><strong class="{% if low_stock %}text-amber-700{% endif %}">{{ low_stock|length }}</strong><span>Productos con stock bajo →</span></a>
+    <a class="stat-card" href="{{ url_for('web_clients.list_clients') }}"><small>Tu comunidad</small><strong>{{ client_count }}</strong><span>Clientes activos →</span></a>
 </div>
+<div class="dashboard-grid">
+    <section class="panel"><div class="panel-header"><h2>Próximas entregas</h2><a href="{{ url_for('web_orders.list_orders') }}">Ver pedidos →</a></div>
+        {% if upcoming_orders %}<div class="delivery-list">
+        {% for order in upcoming_orders %}<a class="delivery-row" href="{{ url_for('web_orders.detail', order_id=order.id) }}"><div><strong>{{ order.customer_name or order.order_number }}</strong><small>{{ order.order_number }} · {{ labels.ORDER_STATUS.get(order.status, order.status) }}</small></div><div class="delivery-total"><strong>{{ format_cents(order.total_cents) }}</strong><small>{% if order.delivery_date %}{{ order.delivery_date.strftime('%d/%m/%Y') }}{% else %}Sin fecha{% endif %}</small></div></a>{% endfor %}
+        </div>{% else %}<div class="empty-state"><strong>Todo listo para tu próximo pedido.</strong>Creá un pedido o agregá clientes a la planilla semanal.</div>{% endif %}
+    </section>
+    <section class="panel"><div class="panel-header"><h2>Atención al stock</h2><a href="{{ url_for('web_inventory.list_inventory') }}">Inventario →</a></div><div class="panel-body">
+        {% if low_stock %}<ul class="compact-list">{% for item in low_stock[:5] %}<li><a href="{{ url_for('web_products.detail', product_id=item.variant.product_id) }}"><strong>{{ item.variant.product.name }}</strong><small>{{ item.variant.sku }}</small></a><span class="pill">{{ item.quantity_available }} disponibles</span></li>{% endfor %}</ul>{% if low_stock|length > 5 %}<a class="block mt-4 text-xs text-indigo-600" href="{{ url_for('web_inventory.list_inventory') }}">Ver los {{ low_stock|length }} artículos →</a>{% endif %}{% else %}<div class="empty-state"><strong>El stock está al día.</strong>Todos los artículos están por encima del punto de reposición.</div>{% endif %}
+    </div></section>
+    <section class="panel"><div class="panel-header"><h2>Últimos movimientos</h2><a href="{{ url_for('web_inventory.movements') }}">Ver historial →</a></div><div class="panel-body">
+        {% if recent_movements %}<ul class="compact-list">{% for m in recent_movements[:5] %}<li><div><strong>{{ m.variant.product.name }}</strong><small>{{ movement_reason(m.reason) }} · {{ m.variant.sku }}</small></div><strong class="{% if m.delta > 0 %}text-green-700{% else %}text-red-600{% endif %}">{% if m.delta > 0 %}+{% endif %}{{ m.delta }}</strong></li>{% endfor %}</ul>{% else %}<div class="empty-state"><strong>El historial empieza acá.</strong>Los ingresos, ajustes y ventas aparecerán en este espacio.</div>{% endif %}
+    </div></section>
+    <section class="panel"><div class="panel-header"><h2>Organizá la semana</h2><span class="pill">Planificación</span></div><div class="panel-body"><p class="page-description mb-5">Cargá cantidades por cliente, revisá los pedidos de la semana y anticipá lo que necesitás comprar.</p><div class="heading-actions"><a class="btn btn-primary" href="{{ url_for('web_orders.week_sheet') }}">Planilla semanal →</a><a class="btn" href="{{ url_for('web_orders.procurement_plan') }}">Ver qué comprar</a></div></div></section>
+</div>
+{% if current_user.is_admin() %}<div class="quick-links"><div><h2>¿Terminaste de probar el sistema?</h2><p>Podés restablecer stock y ventas conservando las fichas de productos y los clientes.</p></div><a class="btn" href="{{ url_for('web_maintenance.index') }}">Administrar datos →</a></div>{% endif %}
 {% endblock %}

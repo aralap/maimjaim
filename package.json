@@ -1,0 +1,11 @@
+{
+  "name": "maimjaim-ui-assets",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build_frontend.cjs"
+  },
+  "devDependencies": {
+    "htmx.org": "2.0.4",
+    "tailwindcss": "3.4.17"
+  }
+}

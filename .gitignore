@@ -23,3 +23,6 @@ private/
 private_import/
 *_from_whatsapp*.csv
 clients_*.csv
+
+# Frontend build dependencies (generated browser assets are committed)
+node_modules/

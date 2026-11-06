@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Inventario - {{ app_name }}{% endblock %}
 {% block content %}
-<div class="flex justify-between items-center mb-8">
-    <h1 class="text-2xl font-bold text-gray-900">Inventario</h1>
+<div class="page-heading">
+    <div><p class="eyebrow">Stock al día</p><h1>Inventario</h1><p class="page-description">Consultá existencias, reservas y disponibilidad por producto.</p></div>
     <a href="{{ url_for('web_inventory.movements') }}" class="text-sm text-indigo-600 hover:text-indigo-800">Registro de movimientos</a>
 </div>
 
-<div class="bg-white shadow rounded-lg overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+<div class="list-toolbar"><label class="sr-only" for="inventory-search">Buscar en la lista</label><input id="inventory-search" type="search" class="search-field" placeholder="Buscar producto o SKU…" data-table-search="inventory-table" aria-controls="inventory-table">{% if current_user.is_admin() %}<a class="btn" href="{{ url_for('web_maintenance.index') }}">Restablecer datos…</a>{% endif %}</div>
+<div class="bg-white shadow rounded-lg table-scroll">
+    <table id="inventory-table" class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
@@ -25,6 +26,7 @@
             {% else %}
             <tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">No hay artículos en inventario.</td></tr>
             {% endfor %}
+        <tr class="filter-empty" data-filter-empty hidden><td colspan="7">No hay resultados para esta búsqueda.</td></tr>
         </tbody>
     </table>
 </div>
@@ -35,7 +37,7 @@
     <form method="post" action="{{ url_for('web_inventory.receive', variant_id=0) }}" id="receive-form" class="space-y-4">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div>
-            <label class="block text-sm font-medium text-gray-700">Variante</label>
+            <label for="receive-variant" class="block text-sm font-medium text-gray-700">Variante</label>
             <select id="receive-variant" class="mt-1 block w-full border rounded-md px-3 py-2">
                 {% for item in items %}
                 <option value="{{ item.variant_id }}">{{ item.variant.sku }} — {{ item.variant.product.name }}</option>
@@ -43,12 +45,12 @@
             </select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Cantidad</label>
-            <input type="number" name="quantity" min="1" required class="mt-1 block w-full border rounded-md px-3 py-2">
+            <label for="receive-quantity" class="block text-sm font-medium text-gray-700">Cantidad</label>
+            <input type="number" id="receive-quantity" name="quantity" min="1" required class="mt-1 block w-full border rounded-md px-3 py-2">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Nota</label>
-            <input type="text" name="note" class="mt-1 block w-full border rounded-md px-3 py-2">
+            <label for="receive-note" class="block text-sm font-medium text-gray-700">Nota</label>
+            <input type="text" id="receive-note" name="note" class="mt-1 block w-full border rounded-md px-3 py-2">
         </div>
         <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Ingresar</button>
     </form>
@@ -56,7 +58,7 @@
 <script>
 document.getElementById('receive-form').addEventListener('submit', function(e) {
     var variantId = document.getElementById('receive-variant').value;
-    this.action = '/inventory/' + variantId + '/receive';
+    this.action = {{ url_for('web_inventory.receive', variant_id=0)|tojson }}.replace('/0/receive', '/' + variantId + '/receive');
 });
 </script>
 {% endif %}
